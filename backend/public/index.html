@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediRoute Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+
+    header {
+      background: linear-gradient(135deg, #2b6cb0, #2c7a7b);
+      color: white; padding: 18px 32px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 1.5rem; }
+    header span { font-size: 1.8rem; }
+    #status-bar {
+      background: #e2e8f0; padding: 8px 32px;
+      font-size: 0.85rem; color: #4a5568;
+      display: flex; gap: 20px; align-items: center;
+    }
+    #status-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #48bb78; display: inline-block; margin-right: 5px; }
+
+    .container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+
+    /* LOGIN */
+    #login-section {
+      background: white; border-radius: 12px; padding: 40px;
+      max-width: 420px; margin: 60px auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    #login-section h2 { margin-bottom: 6px; color: #2b6cb0; }
+    #login-section p { color: #718096; margin-bottom: 24px; font-size: 0.9rem; }
+    label { display: block; margin-bottom: 4px; font-size: 0.85rem; font-weight: 600; color: #4a5568; }
+    input, select {
+      width: 100%; padding: 10px 14px; border: 1px solid #cbd5e0;
+      border-radius: 8px; font-size: 0.95rem; margin-bottom: 16px;
+      outline: none; transition: border 0.2s;
+    }
+    input:focus, select:focus { border-color: #2b6cb0; }
+    button.btn {
+      padding: 10px 20px; border: none; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    button.btn-primary { background: #2b6cb0; color: white; width: 100%; padding: 12px; font-size: 1rem; }
+    button.btn-primary:hover { background: #2c5282; }
+    button.btn-sm { padding: 7px 14px; font-size: 0.82rem; }
+    button.btn-green { background: #48bb78; color: white; }
+    button.btn-green:hover { background: #38a169; }
+    button.btn-blue { background: #4299e1; color: white; }
+    button.btn-blue:hover { background: #3182ce; }
+    button.btn-purple { background: #9f7aea; color: white; }
+    button.btn-purple:hover { background: #805ad5; }
+    button.btn-red { background: #fc8181; color: white; }
+    button.btn-red:hover { background: #e53e3e; }
+    button.btn-gray { background: #a0aec0; color: white; }
+
+    /* DASHBOARD */
+    #dashboard { display: none; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px; }
+    .card {
+      background: white; border-radius: 12px; padding: 22px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    }
+    .card h3 { font-size: 1rem; color: #2d3748; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .card h3 .icon { font-size: 1.2rem; }
+    .card .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      background: white; border-radius: 12px; padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07); text-align: center;
+    }
+    .stat-card .num { font-size: 2rem; font-weight: 700; color: #2b6cb0; }
+    .stat-card .lbl { font-size: 0.8rem; color: #718096; margin-top: 4px; }
+
+    /* RESPONSE */
+    #response-section {
+      background: white; border-radius: 12px; padding: 22px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07); margin-top: 20px;
+    }
+    #response-section h3 { margin-bottom: 12px; color: #2d3748; font-size: 1rem; }
+    #response-box {
+      background: #1a202c; color: #68d391; border-radius: 8px;
+      padding: 16px; font-family: monospace; font-size: 0.82rem;
+      min-height: 120px; max-height: 340px; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    #response-label {
+      font-size: 0.8rem; color: #a0aec0; margin-bottom: 6px;
+    }
+
+    /* TABS */
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab {
+      padding: 8px 18px; border-radius: 20px; border: 2px solid #e2e8f0;
+      background: white; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #4a5568;
+      transition: all 0.2s;
+    }
+    .tab.active { background: #2b6cb0; border-color: #2b6cb0; color: white; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .role-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .role-admin { background: #fed7d7; color: #c53030; }
+    .role-patient { background: #c6f6d5; color: #276749; }
+    .role-doctor { background: #bee3f8; color: #2a4365; }
+    .role-receptionist { background: #fefcbf; color: #744210; }
+
+    .form-inline { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+    .form-inline input, .form-inline select { margin-bottom: 0; width: auto; flex: 1; min-width: 120px; }
+
+    .alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.88rem; }
+    .alert-error { background: #fff5f5; border: 1px solid #fc8181; color: #c53030; }
+    .alert-success { background: #f0fff4; border: 1px solid #68d391; color: #276749; }
+
+    textarea {
+      width: 100%; padding: 10px 14px; border: 1px solid #cbd5e0;
+      border-radius: 8px; font-size: 0.9rem; margin-bottom: 12px;
+      resize: vertical; min-height: 70px; font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: #2b6cb0; }
+
+    #user-info { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    #user-info .name { font-weight: 600; }
+    #logout-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.85rem; }
+    #logout-btn:hover { background: rgba(255,255,255,0.35); }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🏥</span>
+  <h1>MediRoute</h1>
+  <div id="user-info" style="display:none">
+    <span class="name" id="header-user"></span>
+    <span id="header-role"></span>
+    <button id="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</header>
+<div id="status-bar">
+  <span><span class="dot"></span> API running at <strong>http://localhost:5001</strong></span>
+  <span id="db-status">✅ Database connected</span>
+</div>
+
+<!-- LOGIN -->
+<div id="login-section">
+  <h2>Welcome to MediRoute</h2>
+  <p>Sign in to your account to continue</p>
+  <div id="login-alert"></div>
+  <label>Email</label>
+  <input type="email" id="login-email" value="admin@mediroute.com" placeholder="email@example.com"/>
+  <label>Password</label>
+  <input type="password" id="login-password" value="password" placeholder="Password"/>
+  <label>Role</label>
+  <select id="login-role">
+    <option value="admin">Admin</option>
+    <option value="patient">Patient</option>
+    <option value="doctor">Doctor</option>
+    <option value="receptionist">Receptionist</option>
+  </select>
+  <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="container">
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('overview')">Overview</div>
+    <div class="tab" onclick="showTab('admin')" id="tab-admin">Admin</div>
+    <div class="tab" onclick="showTab('patient')" id="tab-patient">Patient</div>
+    <div class="tab" onclick="showTab('receptionist')" id="tab-receptionist">Receptionist</div>
+    <div class="tab" onclick="showTab('doctor')" id="tab-doctor">Doctor</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="sec-overview" class="section active">
+    <div class="stat-grid" id="stats-grid">
+      <div class="stat-card"><div class="num" id="s-doctors">—</div><div class="lbl">Doctors</div></div>
+      <div class="stat-card"><div class="num" id="s-patients">—</div><div class="lbl">Patients</div></div>
+      <div class="stat-card"><div class="num" id="s-appointments">—</div><div class="lbl">Appointments</div></div>
+      <div class="stat-card"><div class="num" id="s-pending">—</div><div class="lbl">Pending</div></div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h3><span class="icon">🔑</span> Quick Actions</h3>
+        <div class="btn-row">
+          <button class="btn btn-sm btn-blue" onclick="loadStats()">Refresh Stats</button>
+          <button class="btn btn-sm btn-green" onclick="listDoctors()">List Doctors</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="icon">ℹ️</span> API Info</h3>
+        <p style="font-size:0.85rem;color:#718096;line-height:1.6">
+          Base URL: <code>http://localhost:5001</code><br>
+          Auth: JWT Bearer Token<br>
+          DB: PostgreSQL (mediroute)
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="sec-admin" class="section">
+    <div class="grid">
+      <div class="card">
+        <h3><span class="icon">👨‍⚕️</span> Add Doctor</h3>
+        <label>Name</label><input id="doc-name" placeholder="Dr. Name" value="Dr. Sarah Khan"/>
+        <label>Email</label><input id="doc-email" placeholder="doctor@email.com" value="doctor@test.com"/>
+        <label>Password</label><input id="doc-pass" value="password123"/>
+        <label>Specialty</label><input id="doc-spec" placeholder="Specialty" value="Cardiologist"/>
+        <button class="btn btn-sm btn-green" onclick="addDoctor()">Add Doctor</button>
+      </div>
+      <div class="card">
+        <h3><span class="icon">🧑‍💼</span> Add Receptionist</h3>
+        <label>Name</label><input id="rec-name" placeholder="Name" value="Alice Smith"/>
+        <label>Email</label><input id="rec-email" placeholder="receptionist@email.com" value="receptionist@test.com"/>
+        <label>Password</label><input id="rec-pass" value="password123"/>
+        <button class="btn btn-sm btn-green" onclick="addReceptionist()">Add Receptionist</button>
+      </div>
+      <div class="card">
+        <h3><span class="icon">📋</span> Manage</h3>
+        <div class="btn-row">
+          <button class="btn btn-sm btn-blue" onclick="listDoctors()">List All Doctors</button>
+          <button class="btn btn-sm btn-blue" onclick="loadStats()">System Stats</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PATIENT -->
+  <div id="sec-patient" class="section">
+    <div class="grid">
+      <div class="card">
+        <h3><span class="icon">📝</span> Register Patient</h3>
+        <label>Name</label><input id="pat-name" value="John Doe"/>
+        <label>Email</label><input id="pat-email" value="patient@test.com"/>
+        <label>Password</label><input id="pat-pass" value="password123"/>
+        <button class="btn btn-sm btn-green" onclick="registerPatient()">Register</button>
+      </div>
+      <div class="card">
+        <h3><span class="icon">🤒</span> Submit Symptoms (AI Triage)</h3>
+        <p style="font-size:0.8rem;color:#718096;margin-bottom:10px">Login as patient first, then describe symptoms — AI will suggest a specialist.</p>
+        <textarea id="symptoms-text" placeholder="Describe your symptoms...">I have been experiencing chest pain and shortness of breath for the past 2 days</textarea>
+        <button class="btn btn-sm btn-purple" onclick="submitSymptoms()">Analyze with AI</button>
+      </div>
+      <div class="card">
+        <h3><span class="icon">📅</span> Book Appointment</h3>
+        <label>Doctor ID</label><input id="apt-doc-id" value="1" style="width:80px"/>
+        <label>Symptom ID</label><input id="apt-sym-id" value="1" style="width:80px"/>
+        <label>Preferred Date</label><input type="date" id="apt-date"/>
+        <div class="btn-row" style="margin-top:6px">
+          <button class="btn btn-sm btn-green" onclick="bookAppointment()">Book</button>
+          <button class="btn btn-sm btn-blue" onclick="myAppointments()">My Appointments</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECEPTIONIST -->
+  <div id="sec-receptionist" class="section">
+    <div class="grid">
+      <div class="card">
+        <h3><span class="icon">📬</span> Pending Appointments</h3>
+        <button class="btn btn-sm btn-blue" onclick="pendingAppointments()">Load Pending</button>
+      </div>
+      <div class="card">
+        <h3><span class="icon">✅</span> Approve / Reject</h3>
+        <label>Appointment ID</label>
+        <input id="apt-action-id" value="1" style="width:80px"/>
+        <div class="btn-row" style="margin-top:8px">
+          <button class="btn btn-sm btn-green" onclick="updateAppointment('approved')">Approve</button>
+          <button class="btn btn-sm btn-red" onclick="updateAppointment('rejected')">Reject</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCTOR -->
+  <div id="sec-doctor" class="section">
+    <div class="grid">
+      <div class="card">
+        <h3><span class="icon">📋</span> My Appointments</h3>
+        <button class="btn btn-sm btn-blue" onclick="doctorAppointments()">Load My Appointments</button>
+      </div>
+      <div class="card">
+        <h3><span class="icon">📝</span> Add Consultation Note</h3>
+        <label>Appointment ID</label><input id="note-apt-id" value="1"/>
+        <label>Note</label>
+        <textarea id="note-text">Patient presents with mild chest discomfort. ECG normal. Advised rest and follow-up in 1 week.</textarea>
+        <button class="btn btn-sm btn-purple" onclick="addNote()">Save Note</button>
+      </div>
+      <div class="card">
+        <h3><span class="icon">💊</span> Issue Prescription</h3>
+        <label>Appointment ID</label><input id="presc-apt-id" value="1"/>
+        <label>Patient ID</label><input id="presc-pat-id" value="1"/>
+        <label>Medications</label>
+        <textarea id="presc-meds">Aspirin 75mg - once daily</textarea>
+        <label>Instructions</label>
+        <textarea id="presc-instr">Take with food. Return if symptoms worsen.</textarea>
+        <button class="btn btn-sm btn-green" onclick="issuePrescription()">Issue Prescription</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESPONSE -->
+  <div id="response-section">
+    <h3>API Response</h3>
+    <div id="response-label">No request made yet</div>
+    <pre id="response-box">Waiting for request...</pre>
+  </div>
+
+</div>
+
+<script>
+  const BASE = 'http://localhost:5001';
+  let token = '';
+  let currentRole = '';
+
+  // Set default date
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+  document.getElementById('apt-date').value = tomorrow.toISOString().split('T')[0];
+
+  function showResponse(label, data, ok=true) {
+    document.getElementById('response-label').textContent = label;
+    document.getElementById('response-box').style.color = ok ? '#68d391' : '#fc8181';
+    document.getElementById('response-box').textContent = JSON.stringify(data, null, 2);
+  }
+
+  async function api(method, path, body=null, useToken=true) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (useToken && token) headers['Authorization'] = 'Bearer ' + token;
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(BASE + path, opts);
+    const data = await res.json();
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  async function doLogin() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const role = document.getElementById('login-role').value;
+    document.getElementById('login-alert').innerHTML = '';
+    const r = await api('POST', '/api/auth/login', { email, password, role }, false);
+    if (r.ok) {
+      token = r.data.token;
+      currentRole = role;
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('user-info').style.display = 'flex';
+      document.getElementById('header-user').textContent = r.data.user.name;
+      document.getElementById('header-role').innerHTML = `<span class="role-badge role-${role}">${role}</span>`;
+      showResponse('POST /api/auth/login', r.data);
+      loadStats();
+    } else {
+      document.getElementById('login-alert').innerHTML = `<div class="alert alert-error">${r.data.error || 'Login failed'}</div>`;
+    }
+  }
+
+  function logout() {
+    token = ''; currentRole = '';
+    document.getElementById('login-section').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('user-info').style.display = 'none';
+  }
+
+  function showTab(name) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('sec-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  async function loadStats() {
+    const r = await api('GET', '/api/admin/stats');
+    if (r.ok) {
+      const s = r.data;
+      document.getElementById('s-doctors').textContent = s.doctors ?? s.total_doctors ?? '—';
+      document.getElementById('s-patients').textContent = s.patients ?? s.total_patients ?? '—';
+      document.getElementById('s-appointments').textContent = s.appointments ?? s.total_appointments ?? '—';
+      document.getElementById('s-pending').textContent = s.pending ?? s.pending_appointments ?? '—';
+      showResponse('GET /api/admin/stats', r.data);
+    } else {
+      showResponse('GET /api/admin/stats', r.data, false);
+    }
+  }
+
+  async function listDoctors() {
+    const r = await api('GET', '/api/admin/doctors');
+    showResponse('GET /api/admin/doctors', r.data, r.ok);
+  }
+
+  async function addDoctor() {
+    const r = await api('POST', '/api/admin/doctors', {
+      name: document.getElementById('doc-name').value,
+      email: document.getElementById('doc-email').value,
+      password: document.getElementById('doc-pass').value,
+      specialty: document.getElementById('doc-spec').value
+    });
+    showResponse('POST /api/admin/doctors', r.data, r.ok);
+  }
+
+  async function addReceptionist() {
+    const r = await api('POST', '/api/admin/receptionists', {
+      name: document.getElementById('rec-name').value,
+      email: document.getElementById('rec-email').value,
+      password: document.getElementById('rec-pass').value
+    });
+    showResponse('POST /api/admin/receptionists', r.data, r.ok);
+  }
+
+  async function registerPatient() {
+    const r = await api('POST', '/api/auth/register', {
+      name: document.getElementById('pat-name').value,
+      email: document.getElementById('pat-email').value,
+      password: document.getElementById('pat-pass').value
+    }, false);
+    showResponse('POST /api/auth/register', r.data, r.ok);
+  }
+
+  async function submitSymptoms() {
+    const r = await api('POST', '/api/symptoms', {
+      symptoms: document.getElementById('symptoms-text').value
+    });
+    showResponse('POST /api/symptoms (AI Triage)', r.data, r.ok);
+  }
+
+  async function bookAppointment() {
+    const r = await api('POST', '/api/appointments', {
+      doctor_id: parseInt(document.getElementById('apt-doc-id').value),
+      symptom_id: parseInt(document.getElementById('apt-sym-id').value),
+      preferred_date: document.getElementById('apt-date').value
+    });
+    showResponse('POST /api/appointments', r.data, r.ok);
+  }
+
+  async function myAppointments() {
+    const r = await api('GET', '/api/appointments/my');
+    showResponse('GET /api/appointments/my', r.data, r.ok);
+  }
+
+  async function pendingAppointments() {
+    const r = await api('GET', '/api/appointments/pending');
+    showResponse('GET /api/appointments/pending', r.data, r.ok);
+  }
+
+  async function updateAppointment(status) {
+    const id = document.getElementById('apt-action-id').value;
+    const r = await api('PATCH', `/api/appointments/${id}`, { status });
+    showResponse(`PATCH /api/appointments/${id}`, r.data, r.ok);
+  }
+
+  async function doctorAppointments() {
+    const r = await api('GET', '/api/appointments/doctor');
+    showResponse('GET /api/appointments/doctor', r.data, r.ok);
+  }
+
+  async function addNote() {
+    const r = await api('POST', '/api/doctor/notes', {
+      appointment_id: parseInt(document.getElementById('note-apt-id').value),
+      note: document.getElementById('note-text').value
+    });
+    showResponse('POST /api/doctor/notes', r.data, r.ok);
+  }
+
+  async function issuePrescription() {
+    const r = await api('POST', '/api/doctor/prescriptions', {
+      appointment_id: parseInt(document.getElementById('presc-apt-id').value),
+      patient_id: parseInt(document.getElementById('presc-pat-id').value),
+      medications: document.getElementById('presc-meds').value,
+      instructions: document.getElementById('presc-instr').value
+    });
+    showResponse('POST /api/doctor/prescriptions', r.data, r.ok);
+  }
+</script>
+</body>
+</html>

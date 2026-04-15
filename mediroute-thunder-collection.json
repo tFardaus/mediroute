@@ -1,0 +1,358 @@
+{
+  "clientName": "Thunder Client",
+  "collectionName": "MediRoute API",
+  "collectionId": "mediroute-collection-001",
+  "dateExported": "2026-04-14",
+  "version": "1.2",
+  "folders": [
+    { "id": "f1", "name": "Auth", "containerId": "" },
+    { "id": "f2", "name": "Admin", "containerId": "" },
+    { "id": "f3", "name": "Patient", "containerId": "" },
+    { "id": "f4", "name": "Receptionist", "containerId": "" },
+    { "id": "f5", "name": "Doctor", "containerId": "" }
+  ],
+  "requests": [
+    {
+      "id": "r01",
+      "colId": "mediroute-collection-001",
+      "containerId": "f1",
+      "name": "Register Patient",
+      "url": "http://localhost:5001/api/auth/register",
+      "method": "POST",
+      "sortNum": 1,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"patient@test.com\",\n  \"password\": \"password123\"\n}"
+      }
+    },
+    {
+      "id": "r02",
+      "colId": "mediroute-collection-001",
+      "containerId": "f1",
+      "name": "Login as Admin",
+      "url": "http://localhost:5001/api/auth/login",
+      "method": "POST",
+      "sortNum": 2,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"admin@mediroute.com\",\n  \"password\": \"password\",\n  \"role\": \"admin\"\n}"
+      },
+      "tests": [
+        {
+          "type": "set-env-var",
+          "custom": "token",
+          "action": "token",
+          "value": "json.token"
+        }
+      ]
+    },
+    {
+      "id": "r03",
+      "colId": "mediroute-collection-001",
+      "containerId": "f1",
+      "name": "Login as Patient",
+      "url": "http://localhost:5001/api/auth/login",
+      "method": "POST",
+      "sortNum": 3,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"password123\",\n  \"role\": \"patient\"\n}"
+      },
+      "tests": [
+        {
+          "type": "set-env-var",
+          "custom": "token",
+          "action": "token",
+          "value": "json.token"
+        }
+      ]
+    },
+    {
+      "id": "r04",
+      "colId": "mediroute-collection-001",
+      "containerId": "f1",
+      "name": "Login as Doctor",
+      "url": "http://localhost:5001/api/auth/login",
+      "method": "POST",
+      "sortNum": 4,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"doctor@test.com\",\n  \"password\": \"password123\",\n  \"role\": \"doctor\"\n}"
+      }
+    },
+    {
+      "id": "r05",
+      "colId": "mediroute-collection-001",
+      "containerId": "f1",
+      "name": "Login as Receptionist",
+      "url": "http://localhost:5001/api/auth/login",
+      "method": "POST",
+      "sortNum": 5,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"receptionist@test.com\",\n  \"password\": \"password123\",\n  \"role\": \"receptionist\"\n}"
+      }
+    },
+    {
+      "id": "r06",
+      "colId": "mediroute-collection-001",
+      "containerId": "f2",
+      "name": "Add Doctor",
+      "url": "http://localhost:5001/api/admin/doctors",
+      "method": "POST",
+      "sortNum": 1,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Dr. Sarah Khan\",\n  \"email\": \"doctor@test.com\",\n  \"password\": \"password123\",\n  \"specialty\": \"Cardiologist\"\n}"
+      }
+    },
+    {
+      "id": "r07",
+      "colId": "mediroute-collection-001",
+      "containerId": "f2",
+      "name": "Add Receptionist",
+      "url": "http://localhost:5001/api/admin/receptionists",
+      "method": "POST",
+      "sortNum": 2,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Alice Smith\",\n  \"email\": \"receptionist@test.com\",\n  \"password\": \"password123\"\n}"
+      }
+    },
+    {
+      "id": "r08",
+      "colId": "mediroute-collection-001",
+      "containerId": "f2",
+      "name": "List All Doctors",
+      "url": "http://localhost:5001/api/admin/doctors",
+      "method": "GET",
+      "sortNum": 3,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r09",
+      "colId": "mediroute-collection-001",
+      "containerId": "f2",
+      "name": "Remove Doctor",
+      "url": "http://localhost:5001/api/admin/doctors/1",
+      "method": "DELETE",
+      "sortNum": 4,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r10",
+      "colId": "mediroute-collection-001",
+      "containerId": "f2",
+      "name": "System Stats",
+      "url": "http://localhost:5001/api/admin/stats",
+      "method": "GET",
+      "sortNum": 5,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r11",
+      "colId": "mediroute-collection-001",
+      "containerId": "f3",
+      "name": "Submit Symptoms (AI Triage)",
+      "url": "http://localhost:5001/api/symptoms",
+      "method": "POST",
+      "sortNum": 1,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"symptoms\": \"I have been experiencing chest pain and shortness of breath for the past 2 days\"\n}"
+      }
+    },
+    {
+      "id": "r12",
+      "colId": "mediroute-collection-001",
+      "containerId": "f3",
+      "name": "Get Symptom Submission",
+      "url": "http://localhost:5001/api/symptoms/1",
+      "method": "GET",
+      "sortNum": 2,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r13",
+      "colId": "mediroute-collection-001",
+      "containerId": "f3",
+      "name": "Request Appointment",
+      "url": "http://localhost:5001/api/appointments",
+      "method": "POST",
+      "sortNum": 3,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"doctor_id\": 1,\n  \"symptom_id\": 1,\n  \"preferred_date\": \"2026-04-20\",\n  \"notes\": \"Urgent consultation needed\"\n}"
+      }
+    },
+    {
+      "id": "r14",
+      "colId": "mediroute-collection-001",
+      "containerId": "f3",
+      "name": "My Appointments",
+      "url": "http://localhost:5001/api/appointments/my",
+      "method": "GET",
+      "sortNum": 4,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r15",
+      "colId": "mediroute-collection-001",
+      "containerId": "f3",
+      "name": "Cancel Appointment",
+      "url": "http://localhost:5001/api/appointments/1",
+      "method": "DELETE",
+      "sortNum": 5,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r16",
+      "colId": "mediroute-collection-001",
+      "containerId": "f3",
+      "name": "My Prescriptions",
+      "url": "http://localhost:5001/api/doctor/prescriptions/my",
+      "method": "GET",
+      "sortNum": 6,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r17",
+      "colId": "mediroute-collection-001",
+      "containerId": "f4",
+      "name": "View Pending Appointments",
+      "url": "http://localhost:5001/api/appointments/pending",
+      "method": "GET",
+      "sortNum": 1,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r18",
+      "colId": "mediroute-collection-001",
+      "containerId": "f4",
+      "name": "Approve Appointment",
+      "url": "http://localhost:5001/api/appointments/1",
+      "method": "PATCH",
+      "sortNum": 2,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"status\": \"approved\"\n}"
+      }
+    },
+    {
+      "id": "r19",
+      "colId": "mediroute-collection-001",
+      "containerId": "f4",
+      "name": "Reject Appointment",
+      "url": "http://localhost:5001/api/appointments/1",
+      "method": "PATCH",
+      "sortNum": 3,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"status\": \"rejected\"\n}"
+      }
+    },
+    {
+      "id": "r20",
+      "colId": "mediroute-collection-001",
+      "containerId": "f5",
+      "name": "My Appointments (Doctor)",
+      "url": "http://localhost:5001/api/appointments/doctor",
+      "method": "GET",
+      "sortNum": 1,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "id": "r21",
+      "colId": "mediroute-collection-001",
+      "containerId": "f5",
+      "name": "Add Consultation Note",
+      "url": "http://localhost:5001/api/doctor/notes",
+      "method": "POST",
+      "sortNum": 2,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"appointment_id\": 1,\n  \"note\": \"Patient presents with mild chest discomfort. ECG normal. Advised rest and follow-up in 1 week.\"\n}"
+      }
+    },
+    {
+      "id": "r22",
+      "colId": "mediroute-collection-001",
+      "containerId": "f5",
+      "name": "Issue Prescription",
+      "url": "http://localhost:5001/api/doctor/prescriptions",
+      "method": "POST",
+      "sortNum": 3,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"appointment_id\": 1,\n  \"patient_id\": 1,\n  \"medications\": \"Aspirin 75mg - once daily, Atorvastatin 20mg - once at night\",\n  \"instructions\": \"Take with food. Avoid alcohol. Return if symptoms worsen.\"\n}"
+      }
+    },
+    {
+      "id": "r23",
+      "colId": "mediroute-collection-001",
+      "containerId": "f5",
+      "name": "View Appointment Notes",
+      "url": "http://localhost:5001/api/doctor/notes/1",
+      "method": "GET",
+      "sortNum": 4,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    }
+  ]
+}
