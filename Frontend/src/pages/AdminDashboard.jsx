@@ -24,18 +24,21 @@ export default function AdminDashboard() {
   const [docForm, setDocForm] = useState({ name: '', email: '', password: '', specialization: '' })
   const [staffForm, setStaffForm] = useState({ name: '', email: '', password: '' })
   const [toast, setToast] = useState('')
+  const [analytics, setAnalytics] = useState(null)
 
   useEffect(() => {
     (async () => {
       try {
-        const [s, d, r] = await Promise.all([
+        const [s, d, r, a] = await Promise.all([
           api.get('/admin/stats').catch(() => ({ data: null })),
           api.get('/admin/doctors').catch(() => ({ data: [] })),
           api.get('/admin/receptionists').catch(() => ({ data: [] })),
+          api.get('/admin/analytics').catch(() => ({ data: null })),
         ])
         setStats(s.data)
         setDoctors(d.data || [])
         setReceptionists(r.data || [])
+        setAnalytics(a.data)
       } catch {}
     })()
   }, [])
@@ -321,44 +324,61 @@ export default function AdminDashboard() {
                 <div className="bg-surface-container p-8 rounded-2xl border border-outline-variant/10">
                   <h5 className="text-sm font-semibold mb-8 uppercase tracking-widest text-on-surface-variant">Appointments per Day (Last 7 Days)</h5>
                   <div className="flex items-end justify-between h-48 gap-4 px-4">
-                    {[
-                      { d: 'Mon', h: '40%' },
-                      { d: 'Tue', h: '60%' },
-                      { d: 'Wed', h: '85%' },
-                      { d: 'Thu', h: '55%' },
-                      { d: 'Fri', h: '95%', peak: true },
-                      { d: 'Sat', h: '30%' },
-                      { d: 'Sun', h: '20%' },
-                    ].map((b) => (
-                      <div key={b.d} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full bg-primary/20 rounded-t-lg relative group" style={{ height: b.h }}>
-                          <div className={`absolute bottom-0 w-full rounded-t-lg h-full ${b.peak ? 'bg-gradient-to-t from-primary to-secondary-dim' : 'bg-primary opacity-60'}`}></div>
-                        </div>
-                        <span className="text-[10px] text-on-surface-variant">{b.d}</span>
-                      </div>
-                    ))}
+                    {(() => {
+                      const days = analytics?.daily || []
+                      const maxCount = Math.max(...days.map(d => d.count), 1)
+                      return days.map((b, i) => {
+                        const heightPct = Math.max((b.count / maxCount) * 100, 4)
+                        const isPeak = b.count === maxCount
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                            <span className="text-[10px] text-on-surface-variant mb-1">{b.count > 0 ? b.count : ''}</span>
+                            <div className="w-full bg-primary/20 rounded-t-lg relative" style={{ height: `${heightPct}%` }}>
+                              <div className={`absolute bottom-0 w-full rounded-t-lg h-full ${isPeak ? 'bg-gradient-to-t from-primary to-secondary-dim' : 'bg-primary opacity-60'}`}></div>
+                            </div>
+                            <span className="text-[10px] text-on-surface-variant">{b.label}</span>
+                          </div>
+                        )
+                      })
+                    })()}
                   </div>
                 </div>
                 {/* Donut Chart */}
                 <div className="bg-surface-container p-8 rounded-2xl border border-outline-variant/10 flex flex-col md:flex-row items-center gap-8">
-                  <div className="relative w-48 h-48">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 192 192">
-                      <circle className="text-surface-container-high" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeWidth="16"></circle>
-                      <circle className="text-primary" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeDasharray="502" strokeDashoffset="150" strokeWidth="16"></circle>
-                      <circle className="text-secondary-dim" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeDasharray="502" strokeDashoffset="400" strokeWidth="16"></circle>
-                      <circle className="text-tertiary" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeDasharray="502" strokeDashoffset="470" strokeWidth="16"></circle>
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold">1.2k</span>
-                      <span className="text-[10px] uppercase text-on-surface-variant">Total</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 space-y-4 w-full">
-                    <h5 className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant mb-4">Appointments by Status</h5>
-                    <LegendRow color="bg-primary" label="Completed" pct="70%" />
-                    <LegendRow color="bg-secondary-dim" label="Scheduled" pct="22%" />
-                    <LegendRow color="bg-tertiary" label="Cancelled" pct="8%" />
-                  </div>
+                  {(() => {
+                    const s = analytics?.status
+                    const total = s?.total || 0
+                    const CIRC = 502
+                    const completedPct = total ? s.completed / total : 0
+                    const scheduledPct = total ? s.scheduled / total : 0
+                    const cancelledPct = total ? s.cancelled / total : 0
+                    const completedDash = CIRC - completedPct * CIRC
+                    const scheduledDash = CIRC - scheduledPct * CIRC
+                    const cancelledDash = CIRC - cancelledPct * CIRC
+                    const pct = (n) => total ? Math.round((n / total) * 100) + '%' : '0%'
+                    return (
+                      <>
+                        <div className="relative w-48 h-48 shrink-0">
+                          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 192 192">
+                            <circle className="text-surface-container-high" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeWidth="16" />
+                            <circle className="text-primary" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeDasharray={CIRC} strokeDashoffset={completedDash} strokeWidth="16" />
+                            <circle className="text-secondary-dim" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeDasharray={CIRC} strokeDashoffset={scheduledDash} strokeWidth="16" strokeOpacity={scheduledPct > 0 ? 1 : 0} />
+                            <circle className="text-tertiary" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeDasharray={CIRC} strokeDashoffset={cancelledDash} strokeWidth="16" strokeOpacity={cancelledPct > 0 ? 1 : 0} />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-2xl font-bold">{total >= 1000 ? (total / 1000).toFixed(1) + 'k' : total}</span>
+                            <span className="text-[10px] uppercase text-on-surface-variant">Total</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 space-y-4 w-full">
+                          <h5 className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant mb-4">Appointments by Status</h5>
+                          <LegendRow color="bg-primary" label="Completed" pct={pct(s?.completed || 0)} />
+                          <LegendRow color="bg-secondary-dim" label="Scheduled" pct={pct(s?.scheduled || 0)} />
+                          <LegendRow color="bg-tertiary" label="Cancelled" pct={pct(s?.cancelled || 0)} />
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
             </section>

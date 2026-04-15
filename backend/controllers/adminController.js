@@ -69,6 +69,49 @@ const getAllDoctors = async (req, res) => {
   }
 };
 
+// ADMIN: Get analytics (bar chart + donut chart data)
+const getAnalytics = async (req, res) => {
+  try {
+    // Appointments per day for last 7 days
+    const dailyResult = await pool.query(`
+      SELECT
+        TO_CHAR(day, 'Dy') AS label,
+        COALESCE(COUNT(a.appointment_id), 0)::int AS count
+      FROM generate_series(
+        CURRENT_DATE - INTERVAL '6 days',
+        CURRENT_DATE,
+        INTERVAL '1 day'
+      ) AS day
+      LEFT JOIN appointments a
+        ON DATE(a.requested_at) = day::date
+      GROUP BY day
+      ORDER BY day ASC
+    `);
+
+    // Appointments by status
+    const statusResult = await pool.query(`
+      SELECT status, COUNT(*)::int AS count FROM appointments GROUP BY status
+    `);
+
+    const statusMap = { pending: 0, approved: 0, rejected: 0 };
+    statusResult.rows.forEach(r => { statusMap[r.status] = r.count; });
+    const total = statusMap.pending + statusMap.approved + statusMap.rejected;
+
+    res.json({
+      daily: dailyResult.rows,
+      status: {
+        total,
+        completed: statusMap.approved,
+        scheduled: statusMap.pending,
+        cancelled: statusMap.rejected,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
 // ADMIN: Get system stats
 const getStats = async (req, res) => {
   try {
@@ -110,4 +153,4 @@ const removeReceptionist = async ({ params: { id } }, res) => {
   }
 };
 
-module.exports = { addDoctor, removeDoctor, addReceptionist, getAllDoctors, getAllReceptionists, removeReceptionist, getStats };
+module.exports = { addDoctor, removeDoctor, addReceptionist, getAllDoctors, getAllReceptionists, removeReceptionist, getStats, getAnalytics };
