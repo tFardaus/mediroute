@@ -88,4 +88,26 @@ const getStats = async (req, res) => {
   }
 };
 
-module.exports = { addDoctor, removeDoctor, addReceptionist, getAllDoctors, getStats };
+// ADMIN: Get all receptionists
+const getAllReceptionists = async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT receptionist_id, name, email, phone FROM receptionists ORDER BY name'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+// ADMIN: Remove a receptionist
+const removeReceptionist = async ({ params: { id } }, res) => {
+  try {
+    await pool.query('DELETE FROM receptionists WHERE receptionist_id = $1', [id]);
+    res.json({ message: 'Receptionist removed.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+module.exports = { addDoctor, removeDoctor, addReceptionist, getAllDoctors, getAllReceptionists, removeReceptionist, getStats };

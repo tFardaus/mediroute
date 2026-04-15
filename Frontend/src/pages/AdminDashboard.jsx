@@ -11,17 +11,6 @@ const NAV = [
   { label: 'Settings', icon: 'settings' },
 ]
 
-const FIGMA_DOCTORS = [
-  { id: 'DR-1092', name: 'Dr. Pritom Nag', specialization: 'Neurosurgeon' },
-  { id: 'DR-1093', name: 'Dr. Monir Uddin', specialization: 'Cardiology' },
-  { id: 'DR-1094', name: 'Dr. Arifur Rahman', specialization: 'Pediatrics' },
-]
-
-const STAFF = [
-  { id: 'RC-8812', name: 'Sarah Mazumder', shift: 'Morning', cls: 'bg-tertiary/10 text-tertiary' },
-  { id: 'RC-8814', name: 'Nurul Elahi', shift: 'Evening', cls: 'bg-secondary-dim/10 text-secondary-dim' },
-  { id: 'RC-8815', name: 'Karimun Islam', shift: 'Night', cls: '', style: { backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' } },
-]
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
@@ -29,6 +18,7 @@ export default function AdminDashboard() {
   const [active, setActive] = useState('Dashboard')
   const [stats, setStats] = useState(null)
   const [doctors, setDoctors] = useState([])
+  const [receptionists, setReceptionists] = useState([])
   const [showDoctorModal, setShowDoctorModal] = useState(false)
   const [showStaffModal, setShowStaffModal] = useState(false)
   const [docForm, setDocForm] = useState({ name: '', email: '', password: '', specialization: '' })
@@ -38,12 +28,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [s, d] = await Promise.all([
+        const [s, d, r] = await Promise.all([
           api.get('/admin/stats').catch(() => ({ data: null })),
           api.get('/admin/doctors').catch(() => ({ data: [] })),
+          api.get('/admin/receptionists').catch(() => ({ data: [] })),
         ])
         setStats(s.data)
         setDoctors(d.data || [])
+        setReceptionists(r.data || [])
       } catch {}
     })()
   }, [])
@@ -60,6 +52,21 @@ export default function AdminDashboard() {
 
   async function refreshDoctors() {
     try { const { data } = await api.get('/admin/doctors'); setDoctors(data || []) } catch {}
+  }
+
+  async function refreshReceptionists() {
+    try { const { data } = await api.get('/admin/receptionists'); setReceptionists(data || []) } catch {}
+  }
+
+  async function deleteReceptionist(id) {
+    if (!window.confirm('Delete this receptionist?')) return
+    try {
+      await api.delete(`/admin/receptionists/${id}`)
+      refreshReceptionists()
+    } catch (err) {
+      setToast(err.response?.data?.error || 'Delete failed')
+      setTimeout(() => setToast(''), 2500)
+    }
   }
 
   async function addDoctor(e) {
@@ -96,16 +103,16 @@ export default function AdminDashboard() {
       setStaffForm({ name: '', email: '', password: '' })
       setToast('Receptionist added')
       setTimeout(() => setToast(''), 2500)
+      refreshReceptionists()
     } catch (err) {
       setToast(err.response?.data?.error || 'Failed to add staff')
       setTimeout(() => setToast(''), 2500)
     }
   }
 
-  const totalPatients = stats?.totalPatients ?? 12482
-  const activeDoctors = stats?.totalDoctors ?? (doctors.length || 342)
-  const appointmentsToday = stats?.appointmentsToday ?? 1124
-  const displayDoctors = doctors.length ? doctors : FIGMA_DOCTORS
+  const totalPatients = stats?.totalPatients ?? 0
+  const activeDoctors = stats?.totalDoctors ?? doctors.length
+  const appointmentsToday = stats?.appointmentsToday ?? 0
   const adminName = user?.name || 'Admin'
   const initial = adminName.charAt(0).toUpperCase()
 
@@ -195,7 +202,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <StatCard icon="person" iconColor="text-primary" iconBg="bg-primary/10" badge="+12% ↑" badgeColor="text-tertiary" value={fmt(totalPatients)} label="Total Patients" valueColor="text-primary-fixed" />
                 <StatCard icon="stethoscope" iconColor="text-secondary-dim" iconBg="bg-secondary-dim/10" badge="Stable" badgeColor="text-on-surface-variant" value={fmt(activeDoctors)} label="Active Doctors" />
-                <StatCard icon="support_agent" iconColor="text-tertiary-dim" iconBg="bg-tertiary-dim/10" badge="+2 New" badgeColor="text-tertiary" value="86" label="Receptionists" />
+                <StatCard icon="support_agent" iconColor="text-tertiary-dim" iconBg="bg-tertiary-dim/10" badge="" badgeColor="text-tertiary" value={fmt(receptionists.length)} label="Receptionists" />
                 <StatCard icon="calendar_month" iconColor="text-primary-dim" iconBg="bg-primary-dim/10" badge="Peak Time" badgeColor="text-primary" value={fmt(appointmentsToday)} label="Appointments Today" />
                 <div className="glass-card p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-container-highest/60 transition-all duration-300 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-secondary-dim/10 blur-3xl -mr-10 -mt-10"></div>
@@ -237,14 +244,16 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="text-sm">
-                      {displayDoctors.map((d) => (
-                        <tr key={d.id} className="border-b border-outline-variant/5 hover:bg-white/5 transition-colors group">
-                          <td className="py-4 text-on-surface-variant">#{typeof d.id === 'string' ? d.id : `DR-${d.id}`}</td>
+                      {doctors.length === 0 ? (
+                        <tr><td colSpan={4} className="py-10 text-center text-on-surface-variant text-sm">No doctors registered yet</td></tr>
+                      ) : doctors.map((d) => (
+                        <tr key={d.doctor_id} className="border-b border-outline-variant/5 hover:bg-white/5 transition-colors group">
+                          <td className="py-4 text-on-surface-variant">#DR-{d.doctor_id}</td>
                           <td className="py-4 font-medium">{d.name}</td>
-                          <td className="py-4 text-on-surface-variant">{d.specialization || d.specialty}</td>
+                          <td className="py-4 text-on-surface-variant">{d.specialization}</td>
                           <td className="py-4 text-right space-x-3">
                             <button className="text-primary hover:text-white transition-colors"><span className="material-symbols-outlined text-lg">edit_note</span></button>
-                            <button onClick={() => deleteDoctor(d.id)} className="text-error hover:text-white transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+                            <button onClick={() => deleteDoctor(d.doctor_id)} className="text-error hover:text-white transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
                           </td>
                         </tr>
                       ))}
@@ -271,21 +280,21 @@ export default function AdminDashboard() {
                       <tr>
                         <th className="pb-4 font-medium">Staff ID</th>
                         <th className="pb-4 font-medium">Name</th>
-                        <th className="pb-4 font-medium">Shift</th>
+                        <th className="pb-4 font-medium">Email</th>
                         <th className="pb-4 font-medium text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm">
-                      {STAFF.map((s) => (
-                        <tr key={s.id} className="border-b border-outline-variant/5 hover:bg-white/5 transition-colors">
-                          <td className="py-4 text-on-surface-variant">#{s.id}</td>
+                      {receptionists.length === 0 ? (
+                        <tr><td colSpan={4} className="py-10 text-center text-on-surface-variant text-sm">No staff registered yet</td></tr>
+                      ) : receptionists.map((s) => (
+                        <tr key={s.receptionist_id} className="border-b border-outline-variant/5 hover:bg-white/5 transition-colors">
+                          <td className="py-4 text-on-surface-variant">#RC-{s.receptionist_id}</td>
                           <td className="py-4 font-medium">{s.name}</td>
-                          <td className="py-4">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${s.cls}`} style={s.style}>{s.shift}</span>
-                          </td>
+                          <td className="py-4 text-on-surface-variant text-xs">{s.email}</td>
                           <td className="py-4 text-right space-x-3">
-                            <button className="text-primary-dim hover:text-white transition-colors"><span className="material-symbols-outlined text-lg">edit_note</span></button>
-                            <button className="text-error-dim hover:text-white transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+                            <button className="text-primary hover:text-white transition-colors"><span className="material-symbols-outlined text-lg">edit_note</span></button>
+                            <button onClick={() => deleteReceptionist(s.receptionist_id)} className="text-error hover:text-white transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
                           </td>
                         </tr>
                       ))}
