@@ -115,16 +115,27 @@ const getAnalytics = async (req, res) => {
 // ADMIN: Get system stats
 const getStats = async (req, res) => {
   try {
-    const patients = await pool.query('SELECT COUNT(*) FROM patients');
-    const doctors = await pool.query('SELECT COUNT(*) FROM doctors');
-    const pending = await pool.query(`SELECT COUNT(*) FROM appointments WHERE status='pending'`);
-    const approved = await pool.query(`SELECT COUNT(*) FROM appointments WHERE status='approved'`);
+    const [patients, doctors, pending, approved, aiRecs] = await Promise.all([
+      pool.query('SELECT COUNT(*) FROM patients'),
+      pool.query('SELECT COUNT(*) FROM doctors'),
+      pool.query(`SELECT COUNT(*) FROM appointments WHERE status='pending'`),
+      pool.query(`SELECT COUNT(*) FROM appointments WHERE status='approved'`),
+      pool.query('SELECT COUNT(*) FROM ai_recommendations'),
+    ]);
+
+    const uptimeSeconds = Math.floor(process.uptime());
+    const days = Math.floor(uptimeSeconds / 86400);
+    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+    const uptime = days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
     res.json({
       totalPatients: parseInt(patients.rows[0].count),
       totalDoctors: parseInt(doctors.rows[0].count),
       pendingAppointments: parseInt(pending.rows[0].count),
       approvedAppointments: parseInt(approved.rows[0].count),
+      aiRecommendations: parseInt(aiRecs.rows[0].count),
+      systemUptime: uptime,
     });
   } catch (err) {
     res.status(500).json({ error: 'Server error.' });

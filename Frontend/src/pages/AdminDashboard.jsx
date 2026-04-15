@@ -214,11 +214,11 @@ export default function AdminDashboard() {
                     <span className="text-secondary text-xs font-bold">AI Driven</span>
                   </div>
                   <div className="mt-4">
-                    <p className="text-4xl font-headline text-on-surface">18</p>
+                    <p className="text-4xl font-headline text-on-surface">{fmt(stats?.aiRecommendations ?? 0)}</p>
                     <p className="text-xs uppercase tracking-widest text-on-surface-variant mt-1">AI Recommendations</p>
                   </div>
                 </div>
-                <StatCard icon="speed" iconColor="text-tertiary" iconBg="bg-tertiary/10" badge="99.9%" badgeColor="text-tertiary" value="428d" label="System Uptime" />
+                <StatCard icon="speed" iconColor="text-tertiary" iconBg="bg-tertiary/10" badge="Online" badgeColor="text-tertiary" value={stats?.systemUptime ?? '—'} label="System Uptime" />
               </div>
             </section>
 
@@ -231,7 +231,7 @@ export default function AdminDashboard() {
                     <h4 className="text-2xl font-headline text-on-surface">Doctor Management</h4>
                     <div className="w-10 h-0.5 bg-primary mt-2"></div>
                   </div>
-                  <button onClick={() => setShowDoctorModal(true)} className="bg-gradient-to-r from-primary to-secondary-dim text-surface px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 hover:shadow-[0_0_20px_rgba(98,208,255,0.4)] transition-all">
+                  <button onClick={() => setShowDoctorModal(true)} className="bg-gradient-to-r from-primary to-secondary-dim text-white font-bold px-5 py-2 rounded-xl text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(98,208,255,0.25)] hover:shadow-[0_0_25px_rgba(98,208,255,0.5)] hover:brightness-110 active:scale-95 transition-all duration-200">
                     <span className="material-symbols-outlined text-sm">add</span>
                     Add New Doctor
                   </button>
