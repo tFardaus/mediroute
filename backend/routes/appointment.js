@@ -3,7 +3,8 @@ const router = express.Router();
 const {
   createAppointment, cancelAppointment,
   getPendingAppointments, updateAppointmentStatus,
-  getDoctorAppointments, getPatientAppointments
+  getDoctorAppointments, getPatientAppointments,
+  getDoctorsList
 } = require('../controllers/appointmentController');
 const { protect, roleGuard } = require('../middleware/auth');
 
@@ -11,6 +12,7 @@ const { protect, roleGuard } = require('../middleware/auth');
 router.post('/', protect, roleGuard('patient'), createAppointment);
 router.delete('/:id', protect, roleGuard('patient'), cancelAppointment);
 router.get('/my', protect, roleGuard('patient'), getPatientAppointments);
+router.get('/doctors', protect, getDoctorsList);
 
 // Receptionist routes
 router.get('/pending', protect, roleGuard('receptionist'), getPendingAppointments);

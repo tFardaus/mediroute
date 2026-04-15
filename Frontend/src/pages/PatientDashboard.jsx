@@ -24,6 +24,10 @@ export default function PatientDashboard() {
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
+  const [bookingOpen, setBookingOpen] = useState(false)
+  const [selectedDoctorId, setSelectedDoctorId] = useState('')
+  const [selectedDate, setSelectedDate] = useState('')
+  const [bookingLoading, setBookingLoading] = useState(false)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -40,7 +44,12 @@ export default function PatientDashboard() {
     try { const { data } = await api.get('/doctor/prescriptions/my'); setPrescriptions(data?.prescriptions || data || []) } catch {}
   }
   async function loadDoctors() {
-    try { const { data } = await api.get('/admin/doctors'); setDoctors(data?.doctors || data || []) } catch {}
+    try {
+      const { data } = await api.get('/appointments/doctors')
+      setDoctors(Array.isArray(data) ? data : data?.doctors || [])
+    } catch (err) {
+      console.error('loadDoctors failed:', err.response?.status, err.response?.data)
+    }
   }
 
   async function submitSymptoms() {
@@ -55,18 +64,29 @@ export default function PatientDashboard() {
     finally { setLoading(false) }
   }
 
-  async function bookAppointment() {
-    if (!doctors.length) return showToast('No doctors available')
-    const d = new Date(); d.setDate(d.getDate() + 1)
+  function openBooking() {
+    if (!doctors.length) return showToast('No doctors available at the moment.')
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+    setSelectedDate(tomorrow.toISOString().split('T')[0])
+    setSelectedDoctorId(doctors[0]?.doctor_id || '')
+    setBookingOpen(true)
+  }
+
+  async function confirmBooking() {
+    if (!selectedDoctorId) return showToast('Please select a doctor.')
+    if (!selectedDate) return showToast('Please select a date.')
+    setBookingLoading(true)
     try {
       await api.post('/appointments', {
-        doctor_id: doctors[0].id,
-        symptom_id: symptomId,
-        preferred_date: d.toISOString().split('T')[0],
+        doctorId: selectedDoctorId,
+        submissionId: symptomId,
+        scheduledDate: selectedDate,
       })
-      showToast('Appointment requested!')
+      showToast('Appointment requested successfully!')
+      setBookingOpen(false)
       loadAppointments()
-    } catch (err) { showToast(err.response?.data?.error || 'Failed') }
+    } catch (err) { showToast(err.response?.data?.error || 'Booking failed') }
+    finally { setBookingLoading(false) }
   }
 
   function logout() {
@@ -245,7 +265,7 @@ export default function PatientDashboard() {
                 </p>
               </div>
               <button
-                onClick={bookAppointment}
+                onClick={openBooking}
                 className="mt-auto w-full py-3 bg-surface-container-highest hover:bg-surface-bright border border-outline-variant/30 rounded-xl text-on-surface font-bold text-sm transition-all flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-sm">calendar_month</span>
@@ -260,7 +280,13 @@ export default function PatientDashboard() {
             <div className="xl:col-span-3 bg-surface-container-low rounded-xl overflow-hidden">
               <div className="p-6 flex justify-between items-center border-b border-outline-variant/10">
                 <h3 className="text-lg font-headline font-bold">Recent Appointments</h3>
-                <button className="text-xs text-primary hover:underline font-bold uppercase tracking-widest">View History</button>
+                <button
+                  onClick={openBooking}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg text-primary text-xs font-bold uppercase tracking-widest transition-all"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  Book Appointment
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -277,12 +303,12 @@ export default function PatientDashboard() {
                     {appointments.length === 0 ? (
                       <tr><td colSpan={5} className="px-6 py-10 text-center text-on-surface-variant text-sm">No appointments yet</td></tr>
                     ) : appointments.slice(0, 5).map(apt => (
-                      <tr key={apt.id} className="hover:bg-surface-container-highest/20 transition-colors">
+                      <tr key={apt.appointment_id} className="hover:bg-surface-container-highest/20 transition-colors">
                         <td className="px-6 py-5 text-sm font-medium">
-                          {apt.preferred_date ? new Date(apt.preferred_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—'}
+                          {apt.scheduled_date ? new Date(apt.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—'}
                         </td>
                         <td className="px-6 py-5 text-sm">{apt.doctor_name || 'Doctor'}</td>
-                        <td className="px-6 py-5 text-xs text-on-surface-variant">{apt.specialty || '—'}</td>
+                        <td className="px-6 py-5 text-xs text-on-surface-variant">{apt.specialization || '—'}</td>
                         <td className="px-6 py-5">
                           <span className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-tighter ${statusChip(apt.status)}`}>
                             {apt.status === 'approved' ? 'Confirmed' : apt.status}
@@ -347,11 +373,11 @@ export default function PatientDashboard() {
                     </div>
                   </>
                 ) : prescriptions.slice(0, 4).map(p => (
-                  <div key={p.id} className="bg-surface-container p-5 rounded-xl border border-outline-variant/10 hover:border-primary/20 transition-all group">
+                  <div key={p.prescription_id} className="bg-surface-container p-5 rounded-xl border border-outline-variant/10 hover:border-primary/20 transition-all group">
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h4 className="text-base font-bold text-on-surface group-hover:text-primary transition-colors">
-                          {(p.medications || '').split('\n')[0] || 'Prescription'}
+                          {p.medication || 'Prescription'}
                         </h4>
                         <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">
                           Issued by {p.doctor_name || 'Doctor'}
@@ -361,8 +387,8 @@ export default function PatientDashboard() {
                     </div>
                     <div className="flex gap-4 text-xs">
                       <div className="flex-1">
-                        <p className="text-on-surface-variant text-[9px] uppercase tracking-tighter mb-1">Issued</p>
-                        <p className="font-medium">{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</p>
+                        <p className="text-on-surface-variant text-[9px] uppercase tracking-tighter mb-1">Dosage</p>
+                        <p className="font-medium">{p.dosage || '—'}</p>
                       </div>
                       <div className="flex-1">
                         <p className="text-on-surface-variant text-[9px] uppercase tracking-tighter mb-1">Instructions</p>
@@ -376,6 +402,76 @@ export default function PatientDashboard() {
           </section>
         </div>
       </main>
+
+      {/* Booking Modal */}
+      {bookingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#0d1526] border border-[#62d0ff]/20 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-headline font-bold text-on-surface">Book Appointment</h3>
+              <button onClick={() => setBookingOpen(false)} className="text-[#a0aace] hover:text-error transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {aiSpecialty ? (
+              <div className="mb-5 px-4 py-2.5 bg-primary/10 border border-primary/20 rounded-xl flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-base" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                <p className="text-xs text-primary font-bold uppercase tracking-widest">AI Suggested: {aiSpecialty}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-on-surface-variant mb-5">
+                No AI recommendation yet — you can still select any doctor and date below.
+              </p>
+            )}
+
+            <div className="space-y-5">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-2">Select Doctor</label>
+                <select
+                  value={selectedDoctorId}
+                  onChange={(e) => setSelectedDoctorId(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40"
+                >
+                  {doctors.map(d => (
+                    <option key={d.doctor_id} value={d.doctor_id}>
+                      {d.name} — {d.specialization}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-2">Preferred Date</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => setBookingOpen(false)}
+                className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant text-sm font-bold hover:bg-surface-container transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBooking}
+                disabled={bookingLoading}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary-dim text-white text-sm font-bold hover:shadow-[0_0_20px_rgba(98,208,255,0.4)] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {bookingLoading ? 'Submitting…' : 'Request Appointment'}
+                {!bookingLoading && <span className="material-symbols-outlined text-sm">send</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 right-6 bg-surface-container-highest border border-outline-variant/20 text-on-surface px-5 py-3 rounded-xl shadow-2xl text-sm z-50">

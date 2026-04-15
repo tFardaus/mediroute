@@ -6,6 +6,9 @@ export default function ReceptionistDashboard() {
   const [active, setActive] = useState('Dashboard')
   const [pending, setPending] = useState([])
   const [toast, setToast] = useState('')
+  const [approving, setApproving] = useState(null)   // apt being approved
+  const [schedDate, setSchedDate] = useState('')
+  const [schedTime, setSchedTime] = useState('')
   const user = JSON.parse(localStorage.getItem('user') || '{}')
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
@@ -17,10 +20,30 @@ export default function ReceptionistDashboard() {
     catch {}
   }
 
-  async function updateStatus(id, status) {
+  function openApprove(apt) {
+    setApproving(apt)
+    setSchedDate(apt.scheduled_date ? apt.scheduled_date.split('T')[0] : '')
+    setSchedTime(apt.scheduled_time || '')
+  }
+
+  async function confirmApprove() {
+    if (!schedDate) return showToast('Please set a scheduled date.')
     try {
-      await api.patch(`/appointments/${id}`, { status })
-      showToast(status === 'approved' ? 'Appointment approved!' : 'Appointment rejected')
+      await api.patch(`/appointments/${approving.appointment_id}`, {
+        status: 'approved',
+        scheduledDate: schedDate,
+        scheduledTime: schedTime || null,
+      })
+      showToast('Appointment approved!')
+      setApproving(null)
+      loadPending()
+    } catch (err) { showToast(err.response?.data?.error || 'Failed') }
+  }
+
+  async function rejectAppointment(id) {
+    try {
+      await api.patch(`/appointments/${id}`, { status: 'rejected' })
+      showToast('Appointment rejected')
       loadPending()
     } catch (err) { showToast(err.response?.data?.error || 'Failed') }
   }
@@ -96,7 +119,7 @@ export default function ReceptionistDashboard() {
                   {pending.length === 0 ? (
                     <tr><td colSpan={5} className="text-center py-10 text-on-surface-variant text-sm">No appointments in queue</td></tr>
                   ) : pending.map(apt => (
-                    <tr key={apt.id} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/20 transition-colors">
+                    <tr key={apt.appointment_id} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/20 transition-colors">
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary font-bold text-xs">
@@ -104,20 +127,20 @@ export default function ReceptionistDashboard() {
                           </div>
                           <div>
                             <p className="font-medium text-on-surface">{apt.patient_name || 'Patient'}</p>
-                            <p className="text-xs text-on-surface-variant">ID: {apt.id}</p>
+                            <p className="text-xs text-on-surface-variant">ID: #{apt.appointment_id}</p>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-3">
                         <div>
                           <p className="text-on-surface">{apt.doctor_name || 'Doctor'}</p>
-                          {apt.specialty && (
-                            <span className="text-xs bg-secondary-container/30 text-on-secondary-container px-2 py-0.5 rounded-full">{apt.specialty}</span>
+                          {apt.specialization && (
+                            <span className="text-xs bg-secondary-container/30 text-on-secondary-container px-2 py-0.5 rounded-full">{apt.specialization}</span>
                           )}
                         </div>
                       </td>
                       <td className="py-3 px-3 text-on-surface-variant">
-                        {apt.preferred_date ? new Date(apt.preferred_date).toLocaleDateString() : '—'}
+                        {apt.scheduled_date ? new Date(apt.scheduled_date).toLocaleDateString() : '—'}
                       </td>
                       <td className="py-3 px-3">
                         <span className={`text-xs px-2.5 py-1 rounded-full capitalize
@@ -129,11 +152,11 @@ export default function ReceptionistDashboard() {
                       <td className="py-3 px-3">
                         {apt.status === 'pending' && (
                           <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => updateStatus(apt.id, 'approved')}
+                            <button onClick={() => openApprove(apt)}
                               className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-tertiary/10 text-tertiary hover:bg-tertiary hover:text-surface transition-all">
                               <span className="material-symbols-outlined text-sm">check</span> Approve
                             </button>
-                            <button onClick={() => updateStatus(apt.id, 'rejected')}
+                            <button onClick={() => rejectAppointment(apt.appointment_id)}
                               className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-error/10 text-error hover:bg-error hover:text-on-error transition-all">
                               <span className="material-symbols-outlined text-sm">close</span> Reject
                             </button>
@@ -158,13 +181,13 @@ export default function ReceptionistDashboard() {
               </h3>
               <div className="space-y-2">
                 {approved.map(apt => (
-                  <div key={apt.id} className="flex items-center gap-4 p-3 bg-surface-container rounded-xl hover:bg-surface-container-highest/20 transition-colors">
+                  <div key={apt.appointment_id} className="flex items-center gap-4 p-3 bg-surface-container rounded-xl hover:bg-surface-container-highest/20 transition-colors">
                     <div className="w-9 h-9 rounded-full bg-tertiary/20 flex items-center justify-center text-tertiary font-bold text-sm">
                       {apt.patient_name?.charAt(0) || 'P'}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-on-surface">{apt.patient_name}</p>
-                      <p className="text-xs text-on-surface-variant">{apt.doctor_name} · {apt.preferred_date ? new Date(apt.preferred_date).toLocaleDateString() : ''}</p>
+                      <p className="text-xs text-on-surface-variant">{apt.doctor_name} · {apt.scheduled_date ? new Date(apt.scheduled_date).toLocaleDateString() : ''}</p>
                     </div>
                     <span className="text-xs bg-tertiary/10 text-tertiary px-3 py-1 rounded-full flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">check</span> Approved
@@ -183,6 +206,50 @@ export default function ReceptionistDashboard() {
         onClick={loadPending}>
         <span className="material-symbols-outlined text-on-primary text-xl">refresh</span>
       </button>
+
+      {/* Approve modal */}
+      {approving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#0d1526] border border-[#62d0ff]/20 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
+            <h3 className="text-lg font-headline font-bold text-on-surface mb-1">Approve Appointment</h3>
+            <p className="text-xs text-on-surface-variant mb-6">
+              {approving.patient_name} → {approving.doctor_name}
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-2">Scheduled Date</label>
+                <input
+                  type="date"
+                  value={schedDate}
+                  onChange={e => setSchedDate(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-2">Scheduled Time <span className="normal-case text-on-surface-variant/60">(optional)</span></label>
+                <input
+                  type="time"
+                  value={schedTime}
+                  onChange={e => setSchedTime(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-7">
+              <button onClick={() => setApproving(null)}
+                className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant text-sm font-bold hover:bg-surface-container transition-colors">
+                Cancel
+              </button>
+              <button onClick={confirmApprove}
+                className="flex-1 py-3 rounded-xl bg-tertiary/20 border border-tertiary/30 text-tertiary text-sm font-bold hover:bg-tertiary hover:text-surface transition-all flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-sm">check</span> Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 right-6 bg-surface-container-highest border border-outline-variant/20 text-on-surface px-5 py-3 rounded-xl shadow-2xl text-sm z-50">

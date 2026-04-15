@@ -29,6 +29,22 @@ function initials(name) {
   return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
+function formatTime(t) {
+  if (!t) return '—'
+  const [h, m] = String(t).split(':')
+  const hour = parseInt(h, 10)
+  const ampm = hour >= 12 ? 'PM' : 'AM'
+  const h12 = hour % 12 || 12
+  return `${String(h12).padStart(2, '0')}:${m} ${ampm}`
+}
+
+function formatDate(d) {
+  if (!d) return null
+  try {
+    return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  } catch { return null }
+}
+
 export default function DoctorDashboard() {
   const navigate = useNavigate()
   const user = JSON.parse(localStorage.getItem('user') || '{}')
@@ -57,8 +73,11 @@ export default function DoctorDashboard() {
       const { data } = await api.get('/appointments/doctor')
       const apts = data?.appointments || data || []
       setAppointments(apts)
-      if (apts.length > 0) setActiveApt(apts[0])
-    } catch {}
+      setActiveApt(apts[0] || null)
+    } catch {
+      setAppointments([])
+      setActiveApt(null)
+    }
   }
 
   // Auto-save indicator while typing notes
@@ -73,7 +92,10 @@ export default function DoctorDashboard() {
     e && e.preventDefault()
     if (!activeApt || !note.trim()) return
     try {
-      await api.post('/doctor/notes', { appointment_id: activeApt.appointment_id, note })
+      await api.post('/doctor/notes', {
+        appointmentId: activeApt.appointment_id,
+        content: note,
+      })
       showToast('Note saved!')
     } catch (err) {
       showToast(err.response?.data?.error || 'Failed to save note')
@@ -81,15 +103,16 @@ export default function DoctorDashboard() {
   }
 
   async function issuePrescription(e) {
-    e.preventDefault()
+    e && e.preventDefault()
     if (!activeApt) return
-    const medications = `${medName} ${medDosage} - ${medFreq}${medInstructions ? '. ' + medInstructions : ''}`
+    if (!medName.trim()) { showToast('Medication name is required'); return }
+    const instructionText = [medFreq, medInstructions].filter(Boolean).join(' — ')
     try {
       await api.post('/doctor/prescriptions', {
-        appointment_id: activeApt.appointment_id,
-        patient_id: activeApt.patient_id,
-        medications,
-        instructions: medInstructions,
+        appointmentId: activeApt.appointment_id,
+        medication: medName,
+        dosage: medDosage || null,
+        instructions: instructionText,
       })
       showToast('Prescription transmitted!')
       setMedName(''); setMedDosage(''); setMedInstructions('')
@@ -98,12 +121,17 @@ export default function DoctorDashboard() {
     }
   }
 
-  function selectApt(apt) {
+  async function selectApt(apt) {
     setActiveApt(apt)
     setNote('')
     setMedName('')
     setMedDosage('')
     setMedInstructions('')
+    try {
+      const { data } = await api.get(`/doctor/notes/${apt.appointment_id}`)
+      const rows = Array.isArray(data) ? data : []
+      if (rows.length > 0) setNote(rows[0].content)
+    } catch { /* no notes yet */ }
     setActiveTab('CONSULTATION NOTES')
   }
 
@@ -268,7 +296,7 @@ export default function DoctorDashboard() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
               {appointments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-40 gap-2">
                   <span className="material-symbols-outlined text-[#62d0ff]/20 text-4xl">event_busy</span>
@@ -278,21 +306,33 @@ export default function DoctorDashboard() {
                 const isInSession = i === 0
                 const isSelected = activeApt?.appointment_id === apt.appointment_id
                 const expanded = expandedId === apt.appointment_id
-                const timeStr = apt.scheduled_date
-                  ? new Date(apt.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : ['09:00 AM', '10:30 AM', '11:15 AM'][i] || `${10 + i}:00 AM`
+                const timeStr = formatTime(apt.scheduled_time)
                 return (
-                  <div
-                    key={apt.appointment_id}
-                    onClick={() => selectApt(apt)}
-                    className="rounded-xl cursor-pointer transition-all duration-200 overflow-hidden"
-                    style={{
-                      borderLeft: `3px solid ${isInSession ? '#62d0ff' : 'rgba(98,208,255,0.2)'}`,
-                      background: isSelected
-                        ? (isInSession ? 'rgba(98,208,255,0.08)' : 'rgba(255,255,255,0.04)')
-                        : (isInSession ? 'rgba(98,208,255,0.04)' : 'rgba(255,255,255,0.02)'),
-                    }}
-                  >
+                  <div key={apt.appointment_id} className="flex gap-2.5 mb-2.5">
+                    {/* Dot + connecting line */}
+                    <div className="flex flex-col items-center flex-shrink-0 w-3.5 pt-3">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={isInSession
+                          ? { background: '#62d0ff', boxShadow: '0 0 6px rgba(98,208,255,0.7)' }
+                          : { border: '2px solid rgba(74,85,120,0.6)', background: 'transparent' }
+                        }
+                      />
+                      {i < appointments.length - 1 && (
+                        <div className="flex-1 w-px mt-1.5" style={{ background: 'rgba(74,85,120,0.25)' }} />
+                      )}
+                    </div>
+                    {/* Card */}
+                    <div
+                      onClick={() => selectApt(apt)}
+                      className="flex-1 rounded-xl cursor-pointer transition-all duration-200 overflow-hidden"
+                      style={{
+                        borderLeft: `3px solid ${isInSession ? '#62d0ff' : 'rgba(98,208,255,0.2)'}`,
+                        background: isSelected
+                          ? (isInSession ? 'rgba(98,208,255,0.08)' : 'rgba(255,255,255,0.04)')
+                          : (isInSession ? 'rgba(98,208,255,0.04)' : 'rgba(255,255,255,0.02)'),
+                      }}
+                    >
                     <div className="px-3.5 py-3">
                       {/* Time + badge */}
                       <div className="flex items-center justify-between mb-2">
@@ -316,9 +356,16 @@ export default function DoctorDashboard() {
                             {apt.suggested_specialization}
                           </span>
                         )}
-                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#a0aace]/10 text-[#a0aace]">
-                          Follow-up
-                        </span>
+                        {isInSession && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#a0aace]/10 text-[#a0aace]">
+                            Follow-up
+                          </span>
+                        )}
+                        {apt.extra_tag && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#a0aace]/10 text-[#a0aace]">
+                            {apt.extra_tag}
+                          </span>
+                        )}
                       </div>
 
                       {/* Symptoms quote */}
@@ -350,6 +397,7 @@ export default function DoctorDashboard() {
                           )}
                         </>
                       )}
+                    </div>
                     </div>
                   </div>
                 )
@@ -406,11 +454,9 @@ export default function DoctorDashboard() {
                     </p>
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { label: 'AGE/SEX',    value: '—' },
+                        { label: 'AGE',        value: activeApt.age ? `${activeApt.age} yrs` : '—' },
                         { label: 'BLOOD TYPE', value: '—' },
-                        { label: 'LAST VISIT', value: activeApt.scheduled_date
-                            ? new Date(activeApt.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                            : '14 Jan 2024' },
+                        { label: 'LAST VISIT', value: formatDate(activeApt.last_visit) || 'No prior visits' },
                       ].map(({ label, value }) => (
                         <div key={label}>
                           <p className="text-[#a0aace] text-[9px] tracking-widest uppercase mb-0.5">{label}</p>
@@ -423,18 +469,20 @@ export default function DoctorDashboard() {
 
                 {/* Section-label bar: notes left | autosaving | prescription right */}
                 <div
-                  className="flex items-center px-5 py-2 flex-shrink-0"
+                  className="flex items-center px-5 flex-shrink-0"
                   style={{ borderBottom: '1px solid rgba(98,208,255,0.07)' }}
                 >
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-[#62d0ff]">
-                    Consultation Notes
-                  </span>
-                  {autosaving && (
-                    <span className="ml-3 text-[9px] text-[#a0aace] tracking-widest uppercase animate-pulse">
-                      Autosaving...
+                  <div className="flex items-center gap-2.5 py-2.5" style={{ borderBottom: '2px solid #62d0ff', marginBottom: '-1px' }}>
+                    <span className="text-[10px] font-bold tracking-widest uppercase text-[#62d0ff]">
+                      Consultation Notes
                     </span>
-                  )}
-                  <span className="ml-auto text-[10px] font-bold tracking-widest uppercase text-[#a0aace]">
+                    {autosaving && (
+                      <span className="text-[9px] text-[#a0aace] tracking-widest uppercase animate-pulse">
+                        Autosaving...
+                      </span>
+                    )}
+                  </div>
+                  <span className="ml-auto text-[10px] font-bold tracking-widest uppercase text-[#a0aace] py-2.5">
                     Issue Prescription
                   </span>
                 </div>

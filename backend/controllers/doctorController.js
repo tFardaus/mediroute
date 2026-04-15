@@ -2,7 +2,8 @@ const pool = require('../config/db');
 
 // DOCTOR: Add consultation note
 const addNote = async (req, res) => {
-  const { appointmentId, content } = req.body;
+  const appointmentId = req.body.appointmentId || req.body.appointment_id;
+  const content = req.body.content || req.body.note;
   const doctorId = req.user.id;
 
   if (!appointmentId || !content) {
@@ -17,13 +18,16 @@ const addNote = async (req, res) => {
     );
     res.status(201).json({ message: 'Note saved.', note: result.rows[0] });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error.' });
   }
 };
 
 // DOCTOR: Issue prescription
 const issuePrescription = async (req, res) => {
-  const { appointmentId, medication, dosage, instructions } = req.body;
+  const appointmentId = req.body.appointmentId || req.body.appointment_id;
+  const medication   = req.body.medication   || req.body.medications;
+  const { dosage, instructions } = req.body;
   const doctorId = req.user.id;
 
   if (!appointmentId || !medication) {
@@ -38,6 +42,7 @@ const issuePrescription = async (req, res) => {
     );
     res.status(201).json({ message: 'Prescription issued.', prescription: result.rows[0] });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error.' });
   }
 };

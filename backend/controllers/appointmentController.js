@@ -5,15 +5,15 @@ const createAppointment = async (req, res) => {
   const { doctorId, submissionId, scheduledDate, scheduledTime } = req.body;
   const patientId = req.user.id;
 
-  if (!doctorId || !submissionId) {
-    return res.status(400).json({ error: 'Doctor and symptom submission are required.' });
+  if (!doctorId) {
+    return res.status(400).json({ error: 'Doctor is required.' });
   }
 
   try {
     const result = await pool.query(
       `INSERT INTO appointments (patient_id, doctor_id, submission_id, scheduled_date, scheduled_time)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [patientId, doctorId, submissionId, scheduledDate || null, scheduledTime || null]
+      [patientId, doctorId, submissionId || null, scheduledDate || null, scheduledTime || null]
     );
     res.status(201).json({ message: 'Appointment requested.', appointment: result.rows[0] });
   } catch (err) {
@@ -64,7 +64,7 @@ const getPendingAppointments = async (req, res) => {
        FROM appointments a
        JOIN patients p ON a.patient_id = p.patient_id
        JOIN doctors d ON a.doctor_id = d.doctor_id
-       JOIN symptom_submissions ss ON a.submission_id = ss.submission_id
+       LEFT JOIN symptom_submissions ss ON a.submission_id = ss.submission_id
        LEFT JOIN ai_recommendations ar ON ss.submission_id = ar.submission_id
        WHERE a.status = 'pending'
        ORDER BY a.requested_at ASC`
@@ -86,8 +86,10 @@ const updateAppointmentStatus = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `UPDATE appointments 
-       SET status = $1, scheduled_date = $2, scheduled_time = $3
+      `UPDATE appointments
+       SET status = $1,
+           scheduled_date = COALESCE($2::date, scheduled_date),
+           scheduled_time = COALESCE($3::time, scheduled_time)
        WHERE appointment_id = $4 RETURNING *`,
       [status, scheduledDate || null, scheduledTime || null, id]
     );
@@ -102,26 +104,35 @@ const updateAppointmentStatus = async (req, res) => {
   }
 };
 
-// DOCTOR: View their approved appointments with patient info
+// DOCTOR: View today's approved appointments with patient info
 const getDoctorAppointments = async (req, res) => {
   const doctorId = req.user.id;
 
   try {
     const result = await pool.query(
       `SELECT a.*,
-        p.name as patient_name, p.email as patient_email, p.phone as patient_phone,
+        p.name AS patient_name, p.email AS patient_email, p.phone AS patient_phone,
+        EXTRACT(YEAR FROM AGE(p.date_of_birth))::int AS age,
         ss.symptoms_text,
-        ar.suggested_specialization, ar.reasoning
+        ar.suggested_specialization, ar.reasoning,
+        (SELECT MAX(scheduled_date)
+           FROM appointments
+           WHERE patient_id = p.patient_id
+             AND status IN ('approved','completed')
+             AND scheduled_date < CURRENT_DATE) AS last_visit
        FROM appointments a
        JOIN patients p ON a.patient_id = p.patient_id
-       JOIN symptom_submissions ss ON a.submission_id = ss.submission_id
+       LEFT JOIN symptom_submissions ss ON a.submission_id = ss.submission_id
        LEFT JOIN ai_recommendations ar ON ss.submission_id = ar.submission_id
-       WHERE a.doctor_id = $1 AND a.status = 'approved'
-       ORDER BY a.scheduled_date ASC`,
+       WHERE a.doctor_id = $1
+         AND a.status = 'approved'
+         AND a.scheduled_date = CURRENT_DATE
+       ORDER BY a.scheduled_time ASC NULLS LAST`,
       [doctorId]
     );
     res.json(result.rows);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error.' });
   }
 };
@@ -145,8 +156,21 @@ const getPatientAppointments = async (req, res) => {
   }
 };
 
-module.exports = { 
-  createAppointment, cancelAppointment, 
-  getPendingAppointments, updateAppointmentStatus, 
-  getDoctorAppointments, getPatientAppointments 
+// PATIENT: Get list of all doctors for booking
+const getDoctorsList = async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT doctor_id, name, specialization FROM doctors ORDER BY name'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+module.exports = {
+  createAppointment, cancelAppointment,
+  getPendingAppointments, updateAppointmentStatus,
+  getDoctorAppointments, getPatientAppointments,
+  getDoctorsList
 };
