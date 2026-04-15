@@ -86,4 +86,27 @@ const getAppointmentNotes = async (req, res) => {
   }
 };
 
-module.exports = { addNote, issuePrescription, getPatientPrescriptions, getAppointmentNotes };
+// DOCTOR: Get their own recent prescriptions with patient names
+const getDoctorPrescriptions = async (req, res) => {
+  const doctorId = req.user.id;
+
+  try {
+    const result = await pool.query(
+      `SELECT pr.prescription_id, pr.medication, pr.dosage, pr.instructions, pr.issued_at,
+              p.name AS patient_name
+       FROM prescriptions pr
+       JOIN appointments a ON pr.appointment_id = a.appointment_id
+       JOIN patients p ON a.patient_id = p.patient_id
+       WHERE pr.doctor_id = $1
+       ORDER BY pr.issued_at DESC
+       LIMIT 20`,
+      [doctorId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+module.exports = { addNote, issuePrescription, getPatientPrescriptions, getAppointmentNotes, getDoctorPrescriptions };

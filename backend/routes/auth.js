@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { register, login } = require('../controllers/authController');
-
-// Quick safety check - remove after confirming it works
-console.log('register type:', typeof register);
-console.log('login type:', typeof login);
+const { register, login, updateProfile } = require('../controllers/authController');
+const { protect } = require('../middleware/auth');
 
 router.post('/register', register);
 router.post('/login', login);
+router.put('/profile', protect, updateProfile);
 
 module.exports = router;

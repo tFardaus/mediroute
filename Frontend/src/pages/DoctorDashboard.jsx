@@ -61,12 +61,35 @@ export default function DoctorDashboard() {
   const [medInstructions, setMedInstructions] = useState('')
   const [autosaving, setAutosaving]         = useState(false)
   const [toast, setToast]                   = useState('')
+  const [recentRx, setRecentRx]             = useState([])
+  const [profileForm, setProfileForm]       = useState({ name: user.name || '', email: user.email || '', currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [profileSaving, setProfileSaving]   = useState(false)
 
   function logout() { localStorage.clear(); navigate('/login') }
 
+  async function saveProfile() {
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword)
+      return showToast('New passwords do not match.')
+    setProfileSaving(true)
+    try {
+      const { data } = await api.put('/auth/profile', {
+        name: profileForm.name,
+        email: profileForm.email,
+        currentPassword: profileForm.currentPassword || undefined,
+        newPassword: profileForm.newPassword || undefined,
+      })
+      const updated = { ...user, name: data.user.name, email: data.user.email }
+      localStorage.setItem('user', JSON.stringify(updated))
+      setProfileForm(f => ({ ...f, currentPassword: '', newPassword: '', confirmPassword: '' }))
+      showToast('Profile updated successfully!')
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Failed to update profile.')
+    } finally { setProfileSaving(false) }
+  }
+
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  useEffect(() => { loadAppointments() }, [])
+  useEffect(() => { loadAppointments(); loadRecentRx() }, [])
 
   async function loadAppointments() {
     try {
@@ -78,6 +101,13 @@ export default function DoctorDashboard() {
       setAppointments([])
       setActiveApt(null)
     }
+  }
+
+  async function loadRecentRx() {
+    try {
+      const { data } = await api.get('/doctor/prescriptions/mine')
+      setRecentRx(Array.isArray(data) ? data : [])
+    } catch {}
   }
 
   // Auto-save indicator while typing notes
@@ -116,6 +146,7 @@ export default function DoctorDashboard() {
       })
       showToast('Prescription transmitted!')
       setMedName(''); setMedDosage(''); setMedInstructions('')
+      loadRecentRx()
     } catch (err) {
       showToast(err.response?.data?.error || 'Failed to issue prescription')
     }
@@ -159,10 +190,7 @@ export default function DoctorDashboard() {
           {NAV.map(item => (
             <button
               key={item.label}
-              onClick={() => {
-                if (item.label === 'Settings') { logout(); return }
-                setSideActive(item.label)
-              }}
+              onClick={() => setSideActive(item.label)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                 sideActive === item.label
                   ? 'bg-[#62d0ff]/10 text-[#62d0ff]'
@@ -196,7 +224,88 @@ export default function DoctorDashboard() {
         </div>
       </aside>
 
+      {/* ─── Settings Panel ─── */}
+      {sideActive === 'Settings' && (
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-10" style={{ background: '#090e1c' }}>
+          <h2 className="text-white font-bold text-xl mb-1">Profile Settings</h2>
+          <p className="text-[#a0aace] text-xs tracking-widest uppercase mb-8">Manage your account details and password</p>
+
+          <div className="max-w-lg space-y-8">
+            {/* Account Info */}
+            <div className="rounded-2xl p-7" style={{ background: '#0f1928', border: '1px solid rgba(98,208,255,0.08)' }}>
+              <h3 className="text-[#62d0ff] text-xs font-bold uppercase tracking-widest mb-5">Account Information</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-[#a0aace] mb-1.5">Full Name</label>
+                  <input
+                    value={profileForm.name}
+                    onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full bg-[#0b1120] border border-[#62d0ff]/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#62d0ff]/40"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-[#a0aace] mb-1.5">Email Address</label>
+                  <input
+                    type="email"
+                    value={profileForm.email}
+                    onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
+                    className="w-full bg-[#0b1120] border border-[#62d0ff]/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#62d0ff]/40"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Change Password */}
+            <div className="rounded-2xl p-7" style={{ background: '#0f1928', border: '1px solid rgba(98,208,255,0.08)' }}>
+              <h3 className="text-[#62d0ff] text-xs font-bold uppercase tracking-widest mb-5">Change Password</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-[#a0aace] mb-1.5">Current Password</label>
+                  <input
+                    type="password"
+                    value={profileForm.currentPassword}
+                    onChange={e => setProfileForm(f => ({ ...f, currentPassword: e.target.value }))}
+                    placeholder="Enter current password"
+                    className="w-full bg-[#0b1120] border border-[#62d0ff]/10 rounded-xl px-4 py-3 text-sm text-white placeholder-[#4a5578] focus:outline-none focus:border-[#62d0ff]/40"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-[#a0aace] mb-1.5">New Password</label>
+                  <input
+                    type="password"
+                    value={profileForm.newPassword}
+                    onChange={e => setProfileForm(f => ({ ...f, newPassword: e.target.value }))}
+                    placeholder="Enter new password"
+                    className="w-full bg-[#0b1120] border border-[#62d0ff]/10 rounded-xl px-4 py-3 text-sm text-white placeholder-[#4a5578] focus:outline-none focus:border-[#62d0ff]/40"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-[#a0aace] mb-1.5">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={profileForm.confirmPassword}
+                    onChange={e => setProfileForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                    placeholder="Repeat new password"
+                    className="w-full bg-[#0b1120] border border-[#62d0ff]/10 rounded-xl px-4 py-3 text-sm text-white placeholder-[#4a5578] focus:outline-none focus:border-[#62d0ff]/40"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={saveProfile}
+              disabled={profileSaving}
+              className="w-full py-3 rounded-xl font-bold text-sm text-white disabled:opacity-60 transition-all hover:brightness-110 active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #62d0ff 0%, #3a7bd5 100%)' }}
+            >
+              {profileSaving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ─── Main ─── */}
+      {sideActive !== 'Settings' && (
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
 
         {/* Header */}
@@ -646,26 +755,36 @@ export default function DoctorDashboard() {
               </tr>
             </thead>
             <tbody>
-              {SAMPLE_RX.map((rx, i) => (
+              {recentRx.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-[#a0aace] text-sm">
+                    No prescriptions issued yet
+                  </td>
+                </tr>
+              ) : recentRx.map((rx, i) => (
                 <tr
-                  key={i}
+                  key={rx.prescription_id}
                   className="transition-colors hover:bg-white/[0.015]"
-                  style={{ borderBottom: i < SAMPLE_RX.length - 1 ? '1px solid rgba(98,208,255,0.04)' : 'none' }}
+                  style={{ borderBottom: i < recentRx.length - 1 ? '1px solid rgba(98,208,255,0.04)' : 'none' }}
                 >
                   <td className="px-6 py-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${rx.colorClass}`}>
-                        {rx.initials}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
+                        {initials(rx.patient_name)}
                       </div>
-                      <span className="text-white text-sm">{rx.patient}</span>
+                      <span className="text-white text-sm">{rx.patient_name || '—'}</span>
                     </div>
                   </td>
                   <td className="px-6 py-3 text-[#a0aace] text-sm">{rx.medication}</td>
                   <td className="px-6 py-3">
-                    <span className="text-[#62d0ff] text-xs font-semibold">{rx.dosage.split('•')[0].trim()}</span>
-                    <span className="text-[#a0aace] text-xs"> • {rx.dosage.split('•')[1]?.trim()}</span>
+                    {rx.dosage
+                      ? <span className="text-[#62d0ff] text-xs font-semibold">{rx.dosage}</span>
+                      : <span className="text-[#a0aace] text-xs">—</span>
+                    }
                   </td>
-                  <td className="px-6 py-3 text-[#a0aace] text-sm">{rx.date}</td>
+                  <td className="px-6 py-3 text-[#a0aace] text-sm">
+                    {rx.issued_at ? new Date(rx.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                  </td>
                   <td className="px-6 py-3">
                     <button className="text-[#62d0ff] text-xs font-bold tracking-widest uppercase hover:text-white transition-colors">
                       View Details
@@ -677,6 +796,7 @@ export default function DoctorDashboard() {
           </table>
         </div>
       </div>
+      )} {/* end sideActive !== Settings */}
 
       {/* Floating + button */}
       <button

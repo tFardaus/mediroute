@@ -101,4 +101,44 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+const updateProfile = async (req, res) => {
+  const { name, email, currentPassword, newPassword } = req.body;
+  const { id, role } = req.user;
+
+  const config = roleConfig[role];
+  if (!config) return res.status(400).json({ error: 'Invalid role.' });
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM ${config.table} WHERE ${config.idCol} = $1`, [id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found.' });
+
+    const current = result.rows[0];
+
+    if (newPassword) {
+      if (!currentPassword) return res.status(400).json({ error: 'Current password is required to set a new one.' });
+      const isMatch = await bcrypt.compare(currentPassword, current.password_hash);
+      if (!isMatch) return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+
+    const passwordHash = newPassword
+      ? await bcrypt.hash(newPassword, 10)
+      : current.password_hash;
+
+    const updated = await pool.query(
+      `UPDATE ${config.table}
+       SET name = $1, email = $2, password_hash = $3
+       WHERE ${config.idCol} = $4
+       RETURNING name, email`,
+      [name || current.name, email || current.email, passwordHash, id]
+    );
+
+    res.json({ message: 'Profile updated successfully.', user: updated.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+module.exports = { register, login, updateProfile };

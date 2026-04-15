@@ -25,6 +25,8 @@ export default function AdminDashboard() {
   const [staffForm, setStaffForm] = useState({ name: '', email: '', password: '' })
   const [toast, setToast] = useState('')
   const [analytics, setAnalytics] = useState(null)
+  const [profileForm, setProfileForm] = useState({ name: user.name || '', email: user.email || '', currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [profileSaving, setProfileSaving] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -43,6 +45,8 @@ export default function AdminDashboard() {
     })()
   }, [])
 
+  function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
   function logout() {
     localStorage.clear()
     navigate('/login')
@@ -50,7 +54,26 @@ export default function AdminDashboard() {
 
   function handleNav(label) {
     setActive(label)
-    if (label === 'Settings') logout()
+  }
+
+  async function saveProfile() {
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword)
+      return showToast('New passwords do not match.')
+    setProfileSaving(true)
+    try {
+      const { data } = await api.put('/auth/profile', {
+        name: profileForm.name,
+        email: profileForm.email,
+        currentPassword: profileForm.currentPassword || undefined,
+        newPassword: profileForm.newPassword || undefined,
+      })
+      const updated = { ...user, name: data.user.name, email: data.user.email }
+      localStorage.setItem('user', JSON.stringify(updated))
+      setProfileForm(f => ({ ...f, currentPassword: '', newPassword: '', confirmPassword: '' }))
+      showToast('Profile updated successfully!')
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Failed to update profile.')
+    } finally { setProfileSaving(false) }
   }
 
   async function refreshDoctors() {
@@ -169,7 +192,77 @@ export default function AdminDashboard() {
           </div>
         </aside>
 
+        {/* Settings Panel */}
+        {active === 'Settings' && (
+          <div className="flex-1 p-10 overflow-y-auto bg-surface">
+            <h2 className="text-xl font-headline font-bold text-on-surface mb-1">Profile Settings</h2>
+            <p className="text-xs text-on-surface-variant uppercase tracking-widest mb-8">Manage your account details and password</p>
+
+            <div className="max-w-lg space-y-8">
+              <div className="glass-card p-7">
+                <h3 className="text-[#62d0ff] text-xs font-bold uppercase tracking-widest mb-5">Account Information</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">Full Name</label>
+                    <input
+                      value={profileForm.name}
+                      onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">Email Address</label>
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card p-7">
+                <h3 className="text-[#62d0ff] text-xs font-bold uppercase tracking-widest mb-5">Change Password</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">Current Password</label>
+                    <input type="password" value={profileForm.currentPassword}
+                      onChange={e => setProfileForm(f => ({ ...f, currentPassword: e.target.value }))}
+                      placeholder="Enter current password"
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-outline/40 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">New Password</label>
+                    <input type="password" value={profileForm.newPassword}
+                      onChange={e => setProfileForm(f => ({ ...f, newPassword: e.target.value }))}
+                      placeholder="Enter new password"
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-outline/40 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">Confirm New Password</label>
+                    <input type="password" value={profileForm.confirmPassword}
+                      onChange={e => setProfileForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                      placeholder="Repeat new password"
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-outline/40 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={saveProfile} disabled={profileSaving}
+                className="w-full py-3 rounded-xl font-bold text-sm text-white disabled:opacity-60 transition-all hover:brightness-110 active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #62d0ff 0%, #3a7bd5 100%)' }}>
+                {profileSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Main */}
+        {active !== 'Settings' && (
         <main className="flex-1 flex flex-col min-w-0 bg-surface overflow-y-auto">
           {/* Header */}
           <header className="flex justify-between items-center w-full px-8 sticky top-0 z-40 h-20 bg-[#090e1c]/40 backdrop-blur-md border-b border-[#62d0ff]/5">
@@ -388,6 +481,7 @@ export default function AdminDashboard() {
             </footer>
           </div>
         </main>
+        )} {/* end active !== Settings */}
       </div>
 
       {/* Toast */}
