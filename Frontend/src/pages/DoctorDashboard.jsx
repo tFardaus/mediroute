@@ -268,118 +268,92 @@ export default function DoctorDashboard() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
               {appointments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-40 gap-2">
                   <span className="material-symbols-outlined text-[#62d0ff]/20 text-4xl">event_busy</span>
                   <p className="text-[#a0aace] text-sm">No appointments today</p>
                 </div>
-              ) : (
-                <div className="relative px-5 py-4">
-                  {/* Vertical timeline line */}
+              ) : appointments.map((apt, i) => {
+                const isInSession = i === 0
+                const isSelected = activeApt?.appointment_id === apt.appointment_id
+                const expanded = expandedId === apt.appointment_id
+                const timeStr = apt.scheduled_date
+                  ? new Date(apt.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : ['09:00 AM', '10:30 AM', '11:15 AM'][i] || `${10 + i}:00 AM`
+                return (
                   <div
-                    className="absolute top-10 bottom-10"
-                    style={{ left: '2.4rem', width: 1, background: 'rgba(98,208,255,0.1)' }}
-                  />
+                    key={apt.appointment_id}
+                    onClick={() => selectApt(apt)}
+                    className="rounded-xl cursor-pointer transition-all duration-200 overflow-hidden"
+                    style={{
+                      borderLeft: `3px solid ${isInSession ? '#62d0ff' : 'rgba(98,208,255,0.2)'}`,
+                      background: isSelected
+                        ? (isInSession ? 'rgba(98,208,255,0.08)' : 'rgba(255,255,255,0.04)')
+                        : (isInSession ? 'rgba(98,208,255,0.04)' : 'rgba(255,255,255,0.02)'),
+                    }}
+                  >
+                    <div className="px-3.5 py-3">
+                      {/* Time + badge */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-bold tracking-wider ${isInSession ? 'text-[#62d0ff]' : 'text-[#4a5578]'}`}>
+                          {isInSession ? `${timeStr} — ACTIVE NOW` : timeStr}
+                        </span>
+                        <span className={`text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full ${
+                          isInSession ? 'bg-[#62d0ff]/15 text-[#62d0ff]' : 'bg-[#a0aace]/10 text-[#a0aace]'
+                        }`}>
+                          {isInSession ? 'In Session' : 'Pending'}
+                        </span>
+                      </div>
 
-                  <div className="space-y-2">
-                    {appointments.map((apt, i) => {
-                      const isInSession = i === 0
-                      const isSelected = activeApt?.appointment_id === apt.appointment_id
-                      const expanded = expandedId === apt.appointment_id
-                      return (
-                        <div
-                          key={apt.appointment_id}
-                          onClick={() => selectApt(apt)}
-                          className={`relative pl-10 pr-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${
-                            isSelected ? 'bg-[#62d0ff]/6' : 'hover:bg-white/[0.02]'
-                          }`}
-                        >
-                          {/* Timeline dot */}
-                          <div
-                            className={`absolute top-4 w-3 h-3 rounded-full border-2 ${
-                              isInSession
-                                ? 'bg-[#62d0ff] border-[#62d0ff]'
-                                : 'border-[#62d0ff]/30 bg-[#0c1422]'
-                            }`}
-                            style={{ left: '1.75rem', zIndex: 1 }}
-                          />
+                      {/* Name */}
+                      <p className="text-white font-semibold text-sm mb-2">{apt.patient_name}</p>
 
-                          {/* Time for non-first entries */}
-                          {!isInSession && apt.scheduled_date && (
-                            <p className="text-[#4a5578] text-[9px] tracking-widest uppercase mb-1.5">
-                              {new Date(apt.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          )}
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {apt.suggested_specialization && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#a0aace]/10 text-[#a0aace]">
+                            {apt.suggested_specialization}
+                          </span>
+                        )}
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#a0aace]/10 text-[#a0aace]">
+                          Follow-up
+                        </span>
+                      </div>
 
-                          <div className="flex items-start gap-3">
-                            {/* Avatar */}
+                      {/* Symptoms quote */}
+                      {apt.symptoms_text && (
+                        <p className="text-[#a0aace] text-xs italic line-clamp-2 mb-2">
+                          "{apt.symptoms_text}"
+                        </p>
+                      )}
+
+                      {/* AI Insights */}
+                      {apt.reasoning && (
+                        <>
+                          <button
+                            onClick={e => { e.stopPropagation(); setExpandedId(expanded ? null : apt.appointment_id) }}
+                            className="flex items-center gap-1 text-[#62d0ff] text-[10px] font-bold tracking-widest uppercase hover:text-white transition-colors"
+                          >
+                            Expand AI Insights
+                            <span className="material-symbols-outlined text-xs">
+                              {expanded ? 'expand_less' : 'expand_more'}
+                            </span>
+                          </button>
+                          {expanded && (
                             <div
-                              className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}
+                              className="mt-2 p-3 rounded-lg text-[#a0aace] text-xs leading-relaxed"
+                              style={{ background: 'rgba(98,208,255,0.05)', border: '1px solid rgba(98,208,255,0.1)' }}
                             >
-                              {initials(apt.patient_name)}
+                              {apt.reasoning}
                             </div>
-
-                            <div className="flex-1 min-w-0">
-                              {/* Name + badges */}
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="text-white text-sm font-semibold">{apt.patient_name}</span>
-                                {isInSession ? (
-                                  <span className="text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-[#62d0ff]/15 text-[#62d0ff]">
-                                    In Session
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-[#a0aace]/10 text-[#a0aace]">
-                                    Pending
-                                  </span>
-                                )}
-                                {apt.suggested_specialization && (
-                                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-[#a0aace]">
-                                    {apt.suggested_specialization}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Symptoms excerpt */}
-                              {apt.symptoms_text && (
-                                <p className="text-[#a0aace] text-xs italic line-clamp-2 mb-1.5">
-                                  "{apt.symptoms_text}"
-                                </p>
-                              )}
-
-                              {/* AI Insights expand */}
-                              {apt.reasoning && (
-                                <>
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation()
-                                      setExpandedId(expanded ? null : apt.appointment_id)
-                                    }}
-                                    className="flex items-center gap-1 text-[#62d0ff] text-[10px] font-bold tracking-widest uppercase hover:text-white transition-colors"
-                                  >
-                                    Expand AI Insights
-                                    <span className="material-symbols-outlined text-xs">
-                                      {expanded ? 'expand_less' : 'expand_more'}
-                                    </span>
-                                  </button>
-                                  {expanded && (
-                                    <div
-                                      className="mt-2 p-3 rounded-xl text-[#a0aace] text-xs leading-relaxed"
-                                      style={{ background: 'rgba(98,208,255,0.05)', border: '1px solid rgba(98,208,255,0.1)' }}
-                                    >
-                                      {apt.reasoning}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })}
             </div>
           </div>
 
@@ -390,12 +364,12 @@ export default function DoctorDashboard() {
           >
             {activeApt ? (
               <>
-                {/* Panel title row */}
+                {/* Panel title bar */}
                 <div
                   className="flex items-center justify-between px-5 py-3 flex-shrink-0"
                   style={{ borderBottom: '1px solid rgba(98,208,255,0.07)' }}
                 >
-                  <span className="text-[#a0aace] text-[10px] font-bold tracking-widest uppercase">Active Consultation</span>
+                  <span className="text-white text-sm font-bold">Active Consultation</span>
                   <div className="flex items-center gap-2">
                     <button
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-[#62d0ff] hover:bg-[#62d0ff]/10 transition-all"
@@ -413,122 +387,97 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
 
-                {/* Patient info */}
+                {/* Patient info — avatar left, details right */}
                 <div
-                  className="px-5 py-3 flex-shrink-0"
+                  className="px-5 py-4 flex items-start gap-4 flex-shrink-0"
                   style={{ borderBottom: '1px solid rgba(98,208,255,0.07)' }}
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${AVATAR_COLORS[appointments.findIndex(a => a.appointment_id === activeApt.appointment_id) % AVATAR_COLORS.length]}`}
-                    >
-                      {initials(activeApt.patient_name)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-white font-bold text-base">{activeApt.patient_name}</h3>
-                        <span className="text-[9px] bg-[#a0aace]/10 text-[#a0aace] px-2 py-0.5 rounded-full font-bold tracking-wider uppercase">
-                          Dr. Busy
-                        </span>
-                      </div>
-                      <p className="text-[#a0aace] text-[10px] mt-0.5">
-                        ID: #{String(activeApt.appointment_id).padStart(7, '0')}
-                      </p>
-                    </div>
+                  <div
+                    className={`w-14 h-14 rounded-xl flex items-center justify-center text-base font-bold flex-shrink-0 ${
+                      AVATAR_COLORS[appointments.findIndex(a => a.appointment_id === activeApt.appointment_id) % AVATAR_COLORS.length]
+                    }`}
+                  >
+                    {initials(activeApt.patient_name)}
                   </div>
-
-                  <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { label: 'AGE/SEX',     value: '—' },
-                      { label: 'BLOOD TYPE',  value: '—' },
-                      { label: 'LAST VISIT',  value: activeApt.scheduled_date
-                          ? new Date(activeApt.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                          : '—' },
-                      { label: 'STATUS',      value: 'Active' },
-                    ].map(({ label, value }) => (
-                      <div key={label}>
-                        <p className="text-[#a0aace] text-[9px] tracking-widest uppercase mb-0.5">{label}</p>
-                        <p className="text-white text-xs font-semibold">{value}</p>
-                      </div>
-                    ))}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-bold text-base leading-tight">{activeApt.patient_name}</h3>
+                    <p className="text-[#a0aace] text-[10px] mb-2">
+                      ID: #MR-{String(activeApt.appointment_id).padStart(5, '0')}
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: 'AGE/SEX',    value: '—' },
+                        { label: 'BLOOD TYPE', value: '—' },
+                        { label: 'LAST VISIT', value: activeApt.scheduled_date
+                            ? new Date(activeApt.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : '14 Jan 2024' },
+                      ].map(({ label, value }) => (
+                        <div key={label}>
+                          <p className="text-[#a0aace] text-[9px] tracking-widest uppercase mb-0.5">{label}</p>
+                          <p className="text-white text-xs font-semibold">{value}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Tabs */}
+                {/* Section-label bar: notes left | autosaving | prescription right */}
                 <div
-                  className="flex items-center gap-1 px-4 py-2 flex-shrink-0"
+                  className="flex items-center px-5 py-2 flex-shrink-0"
                   style={{ borderBottom: '1px solid rgba(98,208,255,0.07)' }}
                 >
-                  {['CONSULTATION NOTES', 'DOSING', 'ISSUE PRESCRIPTION'].map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`text-[10px] font-bold tracking-wider px-3 py-1.5 rounded-lg transition-all ${
-                        activeTab === tab
-                          ? 'bg-[#62d0ff]/10 text-[#62d0ff]'
-                          : 'text-[#a0aace] hover:text-white'
-                      }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-[#62d0ff]">
+                    Consultation Notes
+                  </span>
                   {autosaving && (
-                    <span className="ml-auto text-[9px] text-[#a0aace] tracking-widest uppercase animate-pulse">
+                    <span className="ml-3 text-[9px] text-[#a0aace] tracking-widest uppercase animate-pulse">
                       Autosaving...
                     </span>
                   )}
+                  <span className="ml-auto text-[10px] font-bold tracking-widest uppercase text-[#a0aace]">
+                    Issue Prescription
+                  </span>
                 </div>
 
-                {/* Split area: notes | prescription */}
+                {/* Split: notes | prescription form */}
                 <div className="flex-1 grid min-h-0" style={{ gridTemplateColumns: '1fr 1fr' }}>
 
-                  {/* Left — notes / dosing */}
+                  {/* Notes */}
                   <div
                     className="flex flex-col p-4 min-h-0"
                     style={{ borderRight: '1px solid rgba(98,208,255,0.06)' }}
                   >
-                    {activeTab === 'DOSING' ? (
-                      <div className="flex-1 flex items-center justify-center">
-                        <p className="text-[#4a5578] text-sm">Dosing history unavailable</p>
-                      </div>
-                    ) : (
-                      <>
-                        <textarea
-                          value={note}
-                          onChange={e => setNote(e.target.value)}
-                          placeholder="Start typing clinical observations..."
-                          className="flex-1 resize-none bg-transparent text-[#c8d0e8] text-sm placeholder-[#4a5578] focus:outline-none leading-relaxed"
-                          style={{ minHeight: 100 }}
-                        />
-                        <div
-                          className="flex items-center gap-2 pt-3 mt-2"
-                          style={{ borderTop: '1px solid rgba(98,208,255,0.06)' }}
+                    <textarea
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      placeholder="Start typing clinical observations..."
+                      className="flex-1 resize-none bg-transparent text-[#c8d0e8] text-sm placeholder-[#4a5578] focus:outline-none leading-relaxed"
+                    />
+                    <div
+                      className="flex items-center gap-2 pt-3 mt-2"
+                      style={{ borderTop: '1px solid rgba(98,208,255,0.06)' }}
+                    >
+                      {['mic', 'attach_file'].map(icon => (
+                        <button
+                          key={icon}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-[#a0aace] hover:text-[#62d0ff] hover:bg-[#62d0ff]/10 transition-all"
+                          style={{ border: '1px solid rgba(255,255,255,0.08)' }}
                         >
-                          {['mic', 'attach_file'].map(icon => (
-                            <button
-                              key={icon}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#a0aace] hover:text-[#62d0ff] hover:bg-[#62d0ff]/10 transition-all"
-                              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-                            >
-                              <span className="material-symbols-outlined text-base">{icon}</span>
-                            </button>
-                          ))}
-                          <button
-                            onClick={saveNote}
-                            className="ml-auto text-[10px] font-bold tracking-widest uppercase px-4 py-1.5 rounded-lg text-[#62d0ff] hover:bg-[#62d0ff]/10 transition-all"
-                            style={{ border: '1px solid rgba(98,208,255,0.2)' }}
-                          >
-                            Save Notes
-                          </button>
-                        </div>
-                      </>
-                    )}
+                          <span className="material-symbols-outlined text-base">{icon}</span>
+                        </button>
+                      ))}
+                      <button
+                        onClick={saveNote}
+                        className="ml-auto text-[10px] font-bold tracking-widest uppercase px-4 py-1.5 rounded-lg text-[#62d0ff] hover:bg-[#62d0ff]/10 transition-all"
+                        style={{ border: '1px solid rgba(98,208,255,0.2)' }}
+                      >
+                        Save Notes
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Right — prescription form */}
-                  <form onSubmit={issuePrescription} className="flex flex-col gap-3 p-4">
-                    <p className="text-[#a0aace] text-[10px] font-bold tracking-widest uppercase">Issue Prescription</p>
-
+                  {/* Prescription form */}
+                  <div className="flex flex-col gap-3 p-4 overflow-y-auto">
                     <div>
                       <label className="block text-[#a0aace] text-[9px] tracking-widest uppercase mb-1.5">Medication Name</label>
                       <input
@@ -541,14 +490,13 @@ export default function DoctorDashboard() {
                         onBlur={e => e.target.style.borderColor = 'rgba(98,208,255,0.1)'}
                       />
                     </div>
-
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[#a0aace] text-[9px] tracking-widest uppercase mb-1.5">Dosage</label>
                         <input
                           value={medDosage}
                           onChange={e => setMedDosage(e.target.value)}
-                          placeholder="e.g. 30mg"
+                          placeholder="e.g. 50mg"
                           className="w-full rounded-xl px-3 py-2 text-white text-sm placeholder-[#4a5578] focus:outline-none transition-colors"
                           style={{ background: '#0f1928', border: '1px solid rgba(98,208,255,0.1)' }}
                           onFocus={e => e.target.style.borderColor = 'rgba(98,208,255,0.3)'}
@@ -569,37 +517,47 @@ export default function DoctorDashboard() {
                         </select>
                       </div>
                     </div>
-
                     <div>
                       <label className="block text-[#a0aace] text-[9px] tracking-widest uppercase mb-1.5">Special Instructions</label>
                       <input
                         value={medInstructions}
                         onChange={e => setMedInstructions(e.target.value)}
-                        placeholder="Take with food, morning pref..."
+                        placeholder="Take with food, morning..."
                         className="w-full rounded-xl px-3 py-2 text-white text-sm placeholder-[#4a5578] focus:outline-none transition-colors"
                         style={{ background: '#0f1928', border: '1px solid rgba(98,208,255,0.1)' }}
                         onFocus={e => e.target.style.borderColor = 'rgba(98,208,255,0.3)'}
                         onBlur={e => e.target.style.borderColor = 'rgba(98,208,255,0.1)'}
                       />
                     </div>
+                    <button
+                      type="button"
+                      className="mt-auto w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[#62d0ff] text-xs font-bold tracking-widest uppercase hover:bg-[#62d0ff]/10 transition-all"
+                      style={{ border: '1px solid rgba(98,208,255,0.15)' }}
+                    >
+                      <span className="material-symbols-outlined text-base">add</span>
+                      Add Another Medication
+                    </button>
+                  </div>
+                </div>
 
-                    <div className="mt-auto space-y-2 pt-2">
-                      <button
-                        type="submit"
-                        className="w-full py-3 rounded-xl font-bold text-sm tracking-wider uppercase text-white transition-all hover:brightness-110 active:scale-[0.98]"
-                        style={{ background: 'linear-gradient(135deg, #62d0ff 0%, #3a7bd5 100%)' }}
-                      >
-                        Confirm &amp; Transmit Prescription
-                      </button>
-                      <p className="text-center text-[#4a5578] text-[10px]">
-                        Securely sent to patient's preferred pharmacy
-                      </p>
-                    </div>
-                  </form>
+                {/* Full-width confirm — panel footer */}
+                <div
+                  className="px-5 py-4 flex-shrink-0"
+                  style={{ borderTop: '1px solid rgba(98,208,255,0.07)' }}
+                >
+                  <button
+                    onClick={issuePrescription}
+                    className="w-full py-3 rounded-xl font-bold text-sm tracking-wider uppercase text-white transition-all hover:brightness-110 active:scale-[0.98]"
+                    style={{ background: 'linear-gradient(135deg, #62d0ff 0%, #3a7bd5 100%)' }}
+                  >
+                    Confirm &amp; Transmit Prescription
+                  </button>
+                  <p className="text-center text-[#4a5578] text-[10px] mt-2">
+                    Securely sent to patient's preferred pharmacy
+                  </p>
                 </div>
               </>
             ) : (
-              /* No active appointment selected */
               <div className="flex-1 flex flex-col items-center justify-center gap-3">
                 <span className="material-symbols-outlined text-[#62d0ff]/20 text-5xl">person_search</span>
                 <p className="text-[#a0aace] text-sm">Select a patient from the timeline</p>
