@@ -4,7 +4,8 @@ const {
   createAppointment, cancelAppointment,
   getPendingAppointments, updateAppointmentStatus,
   getDoctorAppointments, getPatientAppointments,
-  getDoctorsList, getDoctorAppointmentHistory, getApprovedAppointments
+  getDoctorsList, getDoctorAppointmentHistory, getApprovedAppointments,
+  getRejectedAppointments, getReceptionistPatients
 } = require('../controllers/appointmentController');
 const { protect, roleGuard } = require('../middleware/auth');
 
@@ -20,6 +21,8 @@ router.patch('/:id', protect, roleGuard('receptionist'), updateAppointmentStatus
 
 // Receptionist routes (additional)
 router.get('/approved', protect, roleGuard('receptionist'), getApprovedAppointments);
+router.get('/rejected', protect, roleGuard('receptionist'), getRejectedAppointments);
+router.get('/patients', protect, roleGuard('receptionist'), getReceptionistPatients);
 
 // Doctor routes
 router.get('/doctor', protect, roleGuard('doctor'), getDoctorAppointments);

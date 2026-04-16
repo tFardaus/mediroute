@@ -21,9 +21,11 @@ const NAV = {
   ],
   receptionist: [
     { icon: 'dashboard', label: 'Dashboard', path: '/receptionist' },
-    { icon: 'pending_actions', label: 'Pending', path: '/receptionist' },
+    { icon: 'pending_actions', label: 'Pending Appointments', path: '/receptionist' },
     { icon: 'check_circle', label: 'Approved', path: '/receptionist' },
-    { icon: 'group', label: 'Patients', path: '/receptionist' },
+    { icon: 'cancel', label: 'Rejected', path: '/receptionist' },
+    { icon: 'group', label: 'Patient List', path: '/receptionist' },
+    { icon: 'settings', label: 'Settings', path: '/receptionist' },
   ],
 }
 

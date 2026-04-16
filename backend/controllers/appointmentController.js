@@ -200,6 +200,40 @@ const getApprovedAppointments = async (req, res) => {
   }
 };
 
+// RECEPTIONIST: Get all rejected appointments
+const getRejectedAppointments = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.appointment_id, a.status, a.scheduled_date, a.scheduled_time, a.requested_at,
+              p.name AS patient_name,
+              d.name AS doctor_name, d.specialization
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.patient_id
+       JOIN doctors d ON a.doctor_id = d.doctor_id
+       WHERE a.status = 'rejected'
+       ORDER BY a.requested_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+// RECEPTIONIST: Get all patients
+const getReceptionistPatients = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT patient_id, name, email, phone, date_of_birth,
+              EXTRACT(YEAR FROM AGE(date_of_birth))::int AS age,
+              created_at
+       FROM patients ORDER BY name`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
 // PATIENT: Get list of all doctors for booking
 const getDoctorsList = async (req, res) => {
   try {
@@ -216,5 +250,6 @@ module.exports = {
   createAppointment, cancelAppointment,
   getPendingAppointments, updateAppointmentStatus,
   getDoctorAppointments, getPatientAppointments,
-  getDoctorsList, getDoctorAppointmentHistory, getApprovedAppointments
+  getDoctorsList, getDoctorAppointmentHistory, getApprovedAppointments,
+  getRejectedAppointments, getReceptionistPatients
 };
