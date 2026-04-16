@@ -164,4 +164,38 @@ const removeReceptionist = async ({ params: { id } }, res) => {
   }
 };
 
-module.exports = { addDoctor, removeDoctor, addReceptionist, getAllDoctors, getAllReceptionists, removeReceptionist, getStats, getAnalytics };
+// ADMIN: Get all patients
+const getAllPatients = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT patient_id, name, email, phone, date_of_birth,
+              EXTRACT(YEAR FROM AGE(date_of_birth))::int AS age,
+              created_at
+       FROM patients ORDER BY name`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+// ADMIN / RECEPTIONIST: Get all appointments
+const getAllAppointments = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.appointment_id, a.status, a.scheduled_date, a.scheduled_time, a.requested_at,
+              p.name AS patient_name,
+              d.name AS doctor_name, d.specialization
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.patient_id
+       JOIN doctors d ON a.doctor_id = d.doctor_id
+       ORDER BY a.requested_at DESC
+       LIMIT 200`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+module.exports = { addDoctor, removeDoctor, addReceptionist, getAllDoctors, getAllReceptionists, removeReceptionist, getStats, getAnalytics, getAllPatients, getAllAppointments };

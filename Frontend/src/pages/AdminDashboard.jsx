@@ -25,22 +25,28 @@ export default function AdminDashboard() {
   const [staffForm, setStaffForm] = useState({ name: '', email: '', password: '' })
   const [toast, setToast] = useState('')
   const [analytics, setAnalytics] = useState(null)
+  const [allPatients, setAllPatients] = useState([])
+  const [allAppointments, setAllAppointments] = useState([])
   const [profileForm, setProfileForm] = useState({ name: user.name || '', email: user.email || '', currentPassword: '', newPassword: '', confirmPassword: '' })
   const [profileSaving, setProfileSaving] = useState(false)
 
   useEffect(() => {
     (async () => {
       try {
-        const [s, d, r, a] = await Promise.all([
+        const [s, d, r, a, p, ap] = await Promise.all([
           api.get('/admin/stats').catch(() => ({ data: null })),
           api.get('/admin/doctors').catch(() => ({ data: [] })),
           api.get('/admin/receptionists').catch(() => ({ data: [] })),
           api.get('/admin/analytics').catch(() => ({ data: null })),
+          api.get('/admin/patients').catch(() => ({ data: [] })),
+          api.get('/admin/appointments').catch(() => ({ data: [] })),
         ])
         setStats(s.data)
         setDoctors(d.data || [])
         setReceptionists(r.data || [])
         setAnalytics(a.data)
+        setAllPatients(Array.isArray(p.data) ? p.data : [])
+        setAllAppointments(Array.isArray(ap.data) ? ap.data : [])
       } catch {}
     })()
   }, [])
@@ -262,7 +268,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Main */}
-        {active !== 'Settings' && (
+        {!['Settings','Patients','Appointments','Analytics','Billing'].includes(active) && (
         <main className="flex-1 flex flex-col min-w-0 bg-surface overflow-y-auto">
           {/* Header */}
           <header className="flex justify-between items-center w-full px-8 sticky top-0 z-40 h-20 bg-[#090e1c]/40 backdrop-blur-md border-b border-[#62d0ff]/5">
@@ -481,7 +487,102 @@ export default function AdminDashboard() {
             </footer>
           </div>
         </main>
-        )} {/* end active !== Settings */}
+        )} {/* end active !== Settings && active !== Patients && active !== Appointments */}
+
+        {/* ── Patients ── */}
+        {active === 'Patients' && (
+          <div className="flex-1 p-8 overflow-y-auto bg-surface">
+            <h2 className="text-xl font-headline font-bold text-on-surface mb-6">All Patients</h2>
+            <div className="bg-surface-container-low rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] text-on-surface-variant uppercase tracking-widest bg-surface-container-high/50">
+                    {['Name','Age','Email','Phone','Registered'].map(h => <th key={h} className="px-6 py-4 font-semibold text-left">{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/5">
+                  {allPatients.length === 0 ? (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-on-surface-variant">No patients found</td></tr>
+                  ) : allPatients.map(p => (
+                    <tr key={p.patient_id} className="hover:bg-surface-container-highest/20 transition-colors">
+                      <td className="px-6 py-4 font-medium text-on-surface">{p.name}</td>
+                      <td className="px-6 py-4 text-on-surface-variant">{p.age ? `${p.age} yrs` : '—'}</td>
+                      <td className="px-6 py-4 text-on-surface-variant">{p.email}</td>
+                      <td className="px-6 py-4 text-on-surface-variant">{p.phone || '—'}</td>
+                      <td className="px-6 py-4 text-on-surface-variant">{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Appointments ── */}
+        {active === 'Appointments' && (
+          <div className="flex-1 p-8 overflow-y-auto bg-surface">
+            <h2 className="text-xl font-headline font-bold text-on-surface mb-6">All Appointments</h2>
+            <div className="bg-surface-container-low rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] text-on-surface-variant uppercase tracking-widest bg-surface-container-high/50">
+                    {['Patient','Doctor','Specialization','Date','Status'].map(h => <th key={h} className="px-6 py-4 font-semibold text-left">{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/5">
+                  {allAppointments.length === 0 ? (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-on-surface-variant">No appointments found</td></tr>
+                  ) : allAppointments.map(a => (
+                    <tr key={a.appointment_id} className="hover:bg-surface-container-highest/20 transition-colors">
+                      <td className="px-6 py-4 font-medium text-on-surface">{a.patient_name}</td>
+                      <td className="px-6 py-4 text-on-surface-variant">{a.doctor_name}</td>
+                      <td className="px-6 py-4 text-on-surface-variant">{a.specialization || '—'}</td>
+                      <td className="px-6 py-4 text-on-surface-variant">{a.scheduled_date ? new Date(a.scheduled_date).toLocaleDateString() : '—'}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${a.status === 'approved' ? 'bg-tertiary/10 text-tertiary' : a.status === 'pending' ? 'bg-amber-500/10 text-amber-400' : 'bg-error/10 text-error'}`}>{a.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Analytics (standalone) ── */}
+        {active === 'Analytics' && (
+          <div className="flex-1 p-8 overflow-y-auto bg-surface">
+            <h2 className="text-xl font-headline font-bold text-on-surface mb-6">Analytics</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
+              {[
+                { label: 'Doctors', value: doctors.length },
+                { label: 'Patients', value: allPatients.length },
+                { label: 'Appointments', value: allAppointments.length },
+                { label: 'Pending', value: allAppointments.filter(a => a.status === 'pending').length },
+              ].map(s => (
+                <div key={s.label} className="glass-card p-5 rounded-xl text-center">
+                  <p className="text-3xl font-headline font-bold text-on-surface">{s.value}</p>
+                  <p className="text-xs text-on-surface-variant uppercase tracking-widest mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="glass-card p-6 rounded-xl text-center">
+              <span className="material-symbols-outlined text-4xl text-primary/30 block mb-2">monitoring</span>
+              <p className="text-on-surface-variant text-sm">Detailed charts available in the Dashboard view</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Billing ── */}
+        {active === 'Billing' && (
+          <div className="flex-1 flex items-center justify-center bg-surface">
+            <div className="text-center">
+              <span className="material-symbols-outlined text-6xl text-primary/20 block mb-4">payments</span>
+              <h3 className="text-xl font-headline font-bold text-on-surface mb-2">Billing Module</h3>
+              <p className="text-on-surface-variant text-sm">Coming soon</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Toast */}

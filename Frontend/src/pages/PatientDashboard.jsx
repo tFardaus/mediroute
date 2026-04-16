@@ -28,6 +28,9 @@ export default function PatientDashboard() {
   const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [selectedDate, setSelectedDate] = useState('')
   const [bookingLoading, setBookingLoading] = useState(false)
+  const [consultationNotes, setConsultationNotes] = useState([])
+  const [profileForm, setProfileForm] = useState({ name: user.name || '', email: user.email || '', currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [profileSaving, setProfileSaving] = useState(false)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -35,6 +38,7 @@ export default function PatientDashboard() {
     loadAppointments()
     loadPrescriptions()
     loadDoctors()
+    loadConsultationNotes()
   }, [])
 
   async function loadAppointments() {
@@ -50,6 +54,27 @@ export default function PatientDashboard() {
     } catch (err) {
       console.error('loadDoctors failed:', err.response?.status, err.response?.data)
     }
+  }
+
+  async function loadConsultationNotes() {
+    try { const { data } = await api.get('/doctor/consultation-notes/mine'); setConsultationNotes(Array.isArray(data) ? data : []) } catch {}
+  }
+
+  async function saveProfile() {
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword)
+      return showToast('New passwords do not match.')
+    setProfileSaving(true)
+    try {
+      const { data } = await api.put('/auth/profile', {
+        name: profileForm.name, email: profileForm.email,
+        currentPassword: profileForm.currentPassword || undefined,
+        newPassword: profileForm.newPassword || undefined,
+      })
+      localStorage.setItem('user', JSON.stringify({ ...user, name: data.user.name, email: data.user.email }))
+      setProfileForm(f => ({ ...f, currentPassword: '', newPassword: '', confirmPassword: '' }))
+      showToast('Profile updated successfully!')
+    } catch (err) { showToast(err.response?.data?.error || 'Failed to update profile.') }
+    finally { setProfileSaving(false) }
   }
 
   async function submitSymptoms() {
@@ -197,7 +222,10 @@ export default function PatientDashboard() {
           </div>
         </header>
 
-        <div className="p-8 space-y-10 overflow-y-auto">
+        <div className="p-8 overflow-y-auto">
+
+          {/* ── Dashboard ── */}
+          {active === 'Dashboard' && <div className="space-y-10">
           {/* Stats */}
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map(s => (
@@ -400,6 +428,205 @@ export default function PatientDashboard() {
               </div>
             </div>
           </section>
+          </div>} {/* end Dashboard */}
+
+          {/* ── Submit Symptoms ── */}
+          {active === 'Submit Symptoms' && (
+            <div className="max-w-3xl mx-auto space-y-6">
+              <h2 className="text-xl font-headline font-bold text-on-surface">Submit Your Symptoms</h2>
+              <div className="bg-surface-container rounded-xl p-8 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-secondary-dim" />
+                <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">Our clinical intelligence engine uses encrypted diagnostic models to provide preliminary guidance.</p>
+                <textarea value={symptoms} onChange={e => setSymptoms(e.target.value)}
+                  className="w-full h-56 bg-surface-container-low border-none rounded-xl p-6 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary/40 transition-all text-base resize-none"
+                  placeholder="Describe how you're feeling today…" />
+                <div className="mt-6 flex justify-end">
+                  <button onClick={submitSymptoms} disabled={loading}
+                    className="bg-gradient-to-r from-primary to-secondary-dim text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:shadow-[0_0_20px_rgba(98,208,255,0.4)] transition-all active:scale-95 disabled:opacity-60">
+                    {loading ? 'Analyzing…' : 'Get AI Recommendation'}
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+              {aiResult && (
+                <div className="bg-surface-container rounded-xl p-6 border border-primary/30">
+                  <p className="text-[10px] text-primary font-bold uppercase tracking-widest mb-2">AI Result</p>
+                  <h4 className="text-xl font-headline font-bold mb-3">{aiSpecialty}</h4>
+                  <p className="text-sm text-on-surface-variant italic mb-5">"{aiText}"</p>
+                  <button onClick={openBooking} className="w-full py-3 bg-surface-container-highest hover:bg-surface-bright border border-outline-variant/30 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-sm">calendar_month</span>Book Appointment
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── AI Suggestion ── */}
+          {active === 'AI Suggestion' && (
+            <div className="max-w-xl mx-auto">
+              {aiResult ? (
+                <div className="bg-surface-container rounded-xl p-8 border border-primary/30 shadow-[0_0_30px_rgba(98,208,255,0.1)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <span className="material-symbols-outlined text-primary animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                    <p className="text-[10px] text-primary font-bold uppercase tracking-widest">AI Result Analysis</p>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mb-1">Suggested Specialization</p>
+                  <h4 className="text-3xl font-headline font-bold mb-4">{aiSpecialty}</h4>
+                  <p className="text-sm text-on-surface-variant italic leading-relaxed mb-8">"{aiText}"</p>
+                  <button onClick={openBooking} className="w-full py-3 bg-surface-container-highest hover:bg-surface-bright border border-outline-variant/30 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-sm">calendar_month</span>Book Appointment
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-20">
+                  <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4 block">psychology</span>
+                  <p className="text-on-surface-variant">No AI suggestion yet. Go to <button onClick={() => setActive('Submit Symptoms')} className="text-primary underline">Submit Symptoms</button> first.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── My Appointments ── */}
+          {active === 'My Appointments' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-headline font-bold text-on-surface">My Appointments</h2>
+                <button onClick={openBooking} className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg text-primary text-xs font-bold uppercase tracking-widest transition-all">
+                  <span className="material-symbols-outlined text-sm">add</span>Book Appointment
+                </button>
+              </div>
+              <div className="bg-surface-container-low rounded-xl overflow-hidden">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] text-on-surface-variant uppercase tracking-widest bg-surface-container-high/50">
+                      <th className="px-6 py-4 font-semibold">Date</th>
+                      <th className="px-6 py-4 font-semibold">Time</th>
+                      <th className="px-6 py-4 font-semibold">Doctor</th>
+                      <th className="px-6 py-4 font-semibold">Specialization</th>
+                      <th className="px-6 py-4 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/5">
+                    {appointments.length === 0 ? (
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-on-surface-variant">No appointments yet</td></tr>
+                    ) : appointments.map(apt => (
+                      <tr key={apt.appointment_id} className="hover:bg-surface-container-highest/20 transition-colors">
+                        <td className="px-6 py-4 text-sm font-medium">{apt.scheduled_date ? new Date(apt.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—'}</td>
+                        <td className="px-6 py-4 text-sm text-on-surface-variant">{apt.scheduled_time || '—'}</td>
+                        <td className="px-6 py-4 text-sm">{apt.doctor_name || '—'}</td>
+                        <td className="px-6 py-4 text-xs text-on-surface-variant">{apt.specialization || '—'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-tighter ${statusChip(apt.status)}`}>
+                            {apt.status === 'approved' ? 'Confirmed' : apt.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── My Prescriptions ── */}
+          {active === 'My Prescriptions' && (
+            <div>
+              <h2 className="text-xl font-headline font-bold text-on-surface mb-6">My Prescriptions</h2>
+              {prescriptions.length === 0 ? (
+                <div className="text-center py-20 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-5xl block mb-3">medication</span>
+                  No prescriptions issued yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {prescriptions.map(p => (
+                    <div key={p.prescription_id} className="bg-surface-container p-5 rounded-xl border border-outline-variant/10 hover:border-primary/20 transition-all">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="text-base font-bold text-on-surface">{p.medication}</h4>
+                          <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-0.5">By {p.doctor_name}</p>
+                        </div>
+                        <span className="material-symbols-outlined text-primary/40">medication_liquid</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs mt-4">
+                        <div><p className="text-on-surface-variant text-[9px] uppercase tracking-tighter mb-1">Dosage</p><p className="font-medium">{p.dosage || '—'}</p></div>
+                        <div><p className="text-on-surface-variant text-[9px] uppercase tracking-tighter mb-1">Issued</p><p className="font-medium">{p.issued_at ? new Date(p.issued_at).toLocaleDateString() : '—'}</p></div>
+                        <div className="col-span-2"><p className="text-on-surface-variant text-[9px] uppercase tracking-tighter mb-1">Instructions</p><p className="font-medium">{p.instructions || '—'}</p></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Consultation Notes ── */}
+          {active === 'Consultation Notes' && (
+            <div>
+              <h2 className="text-xl font-headline font-bold text-on-surface mb-6">Consultation Notes</h2>
+              {consultationNotes.length === 0 ? (
+                <div className="text-center py-20 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-5xl block mb-3">description</span>
+                  No consultation notes yet.
+                </div>
+              ) : (
+                <div className="space-y-4 max-w-3xl">
+                  {consultationNotes.map(n => (
+                    <div key={n.note_id} className="bg-surface-container rounded-xl p-6 border border-outline-variant/10 hover:border-primary/20 transition-all">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="text-sm font-bold text-on-surface">Dr. {n.doctor_name}</p>
+                          <p className="text-xs text-on-surface-variant mt-0.5">
+                            {n.scheduled_date ? new Date(n.scheduled_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : new Date(n.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className="material-symbols-outlined text-primary/40">note_alt</span>
+                      </div>
+                      <p className="text-sm text-on-surface-variant leading-relaxed">{n.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Settings ── */}
+          {active === 'Settings' && (
+            <div className="max-w-lg space-y-8">
+              <h2 className="text-xl font-headline font-bold text-on-surface mb-1">Profile Settings</h2>
+              <div className="bg-surface-container rounded-xl p-7 border border-outline-variant/10">
+                <h3 className="text-[#62d0ff] text-xs font-bold uppercase tracking-widest mb-5">Account Information</h3>
+                <div className="space-y-4">
+                  <div><label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">Full Name</label>
+                    <input value={profileForm.name} onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40" />
+                  </div>
+                  <div><label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">Email Address</label>
+                    <input type="email" value={profileForm.email} onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-surface-container rounded-xl p-7 border border-outline-variant/10">
+                <h3 className="text-[#62d0ff] text-xs font-bold uppercase tracking-widest mb-5">Change Password</h3>
+                <div className="space-y-4">
+                  {[['Current Password','currentPassword'],['New Password','newPassword'],['Confirm New Password','confirmPassword']].map(([label, key]) => (
+                    <div key={key}><label className="block text-[10px] uppercase tracking-widest text-on-surface-variant mb-1.5">{label}</label>
+                      <input type="password" value={profileForm[key]} onChange={e => setProfileForm(f => ({ ...f, [key]: e.target.value }))}
+                        placeholder={`Enter ${label.toLowerCase()}`}
+                        className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-outline/40 focus:outline-none focus:ring-1 focus:ring-primary/40" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={saveProfile} disabled={profileSaving}
+                className="w-full py-3 rounded-xl font-bold text-sm text-white disabled:opacity-60 transition-all hover:brightness-110 active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #62d0ff 0%, #3a7bd5 100%)' }}>
+                {profileSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          )}
+
         </div>
       </main>
 

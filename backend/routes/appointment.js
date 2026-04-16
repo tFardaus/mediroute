@@ -4,7 +4,7 @@ const {
   createAppointment, cancelAppointment,
   getPendingAppointments, updateAppointmentStatus,
   getDoctorAppointments, getPatientAppointments,
-  getDoctorsList
+  getDoctorsList, getDoctorAppointmentHistory, getApprovedAppointments
 } = require('../controllers/appointmentController');
 const { protect, roleGuard } = require('../middleware/auth');
 
@@ -18,7 +18,11 @@ router.get('/doctors', protect, getDoctorsList);
 router.get('/pending', protect, roleGuard('receptionist'), getPendingAppointments);
 router.patch('/:id', protect, roleGuard('receptionist'), updateAppointmentStatus);
 
+// Receptionist routes (additional)
+router.get('/approved', protect, roleGuard('receptionist'), getApprovedAppointments);
+
 // Doctor routes
 router.get('/doctor', protect, roleGuard('doctor'), getDoctorAppointments);
+router.get('/doctor/history', protect, roleGuard('doctor'), getDoctorAppointmentHistory);
 
 module.exports = router;

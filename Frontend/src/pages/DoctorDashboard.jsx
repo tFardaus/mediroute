@@ -62,6 +62,8 @@ export default function DoctorDashboard() {
   const [autosaving, setAutosaving]         = useState(false)
   const [toast, setToast]                   = useState('')
   const [recentRx, setRecentRx]             = useState([])
+  const [docPatients, setDocPatients]       = useState([])
+  const [aptHistory, setAptHistory]         = useState([])
   const [profileForm, setProfileForm]       = useState({ name: user.name || '', email: user.email || '', currentPassword: '', newPassword: '', confirmPassword: '' })
   const [profileSaving, setProfileSaving]   = useState(false)
 
@@ -89,7 +91,7 @@ export default function DoctorDashboard() {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  useEffect(() => { loadAppointments(); loadRecentRx() }, [])
+  useEffect(() => { loadAppointments(); loadRecentRx(); loadDocPatients(); loadAptHistory() }, [])
 
   async function loadAppointments() {
     try {
@@ -108,6 +110,14 @@ export default function DoctorDashboard() {
       const { data } = await api.get('/doctor/prescriptions/mine')
       setRecentRx(Array.isArray(data) ? data : [])
     } catch {}
+  }
+
+  async function loadDocPatients() {
+    try { const { data } = await api.get('/doctor/patients'); setDocPatients(Array.isArray(data) ? data : []) } catch {}
+  }
+
+  async function loadAptHistory() {
+    try { const { data } = await api.get('/appointments/doctor/history'); setAptHistory(Array.isArray(data) ? data : []) } catch {}
   }
 
   // Auto-save indicator while typing notes
@@ -796,7 +806,119 @@ export default function DoctorDashboard() {
           </table>
         </div>
       </div>
-      )} {/* end sideActive !== Settings */}
+      )} {/* end sideActive === Dashboard */}
+
+      {/* ── Patients ── */}
+      {sideActive === 'Patients' && (
+        <div className="flex-1 p-8 overflow-y-auto" style={{ background: '#090e1c' }}>
+          <h2 className="text-white font-bold text-xl mb-6">My Patients</h2>
+          {docPatients.length === 0 ? (
+            <div className="text-center py-20 text-[#a0aace]"><span className="material-symbols-outlined text-5xl block mb-3">people</span>No patients yet.</div>
+          ) : (
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#0c1422', border: '1px solid rgba(98,208,255,0.08)' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(98,208,255,0.06)' }}>
+                    {['Patient','Age','Email','Phone','Last Visit','Visits'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-[10px] font-bold tracking-widest uppercase text-[#a0aace]">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {docPatients.map((p, i) => (
+                    <tr key={p.patient_id} className="hover:bg-white/[0.015] transition-colors" style={{ borderBottom: i < docPatients.length - 1 ? '1px solid rgba(98,208,255,0.04)' : 'none' }}>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>{initials(p.name)}</div>
+                          <span className="text-white">{p.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-[#a0aace]">{p.age ? `${p.age} yrs` : '—'}</td>
+                      <td className="px-5 py-3 text-[#a0aace]">{p.email}</td>
+                      <td className="px-5 py-3 text-[#a0aace]">{p.phone || '—'}</td>
+                      <td className="px-5 py-3 text-[#a0aace]">{p.last_visit ? new Date(p.last_visit).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                      <td className="px-5 py-3 text-[#62d0ff] font-bold">{p.visit_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Appointments ── */}
+      {sideActive === 'Appointments' && (
+        <div className="flex-1 p-8 overflow-y-auto" style={{ background: '#090e1c' }}>
+          <h2 className="text-white font-bold text-xl mb-6">Appointment History</h2>
+          {aptHistory.length === 0 ? (
+            <div className="text-center py-20 text-[#a0aace]"><span className="material-symbols-outlined text-5xl block mb-3">calendar_month</span>No appointments yet.</div>
+          ) : (
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#0c1422', border: '1px solid rgba(98,208,255,0.08)' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(98,208,255,0.06)' }}>
+                    {['Patient','Age','Date','Time','Status','Symptoms'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-[10px] font-bold tracking-widest uppercase text-[#a0aace]">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {aptHistory.map((a, i) => (
+                    <tr key={a.appointment_id} className="hover:bg-white/[0.015] transition-colors" style={{ borderBottom: i < aptHistory.length - 1 ? '1px solid rgba(98,208,255,0.04)' : 'none' }}>
+                      <td className="px-5 py-3 text-white font-medium">{a.patient_name}</td>
+                      <td className="px-5 py-3 text-[#a0aace]">{a.age ? `${a.age} yrs` : '—'}</td>
+                      <td className="px-5 py-3 text-[#a0aace]">{a.scheduled_date ? new Date(a.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                      <td className="px-5 py-3 text-[#a0aace]">{a.scheduled_time ? formatTime(a.scheduled_time) : '—'}</td>
+                      <td className="px-5 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${a.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400' : a.status === 'pending' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>{a.status}</span>
+                      </td>
+                      <td className="px-5 py-3 text-[#a0aace] max-w-xs truncate">{a.symptoms_text || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Analytics ── */}
+      {sideActive === 'Analytics' && (
+        <div className="flex-1 p-8 overflow-y-auto" style={{ background: '#090e1c' }}>
+          <h2 className="text-white font-bold text-xl mb-6">Analytics</h2>
+          <div className="grid grid-cols-3 gap-5 mb-8">
+            {[
+              { label: 'Total Patients', value: docPatients.length, icon: 'people' },
+              { label: 'Total Appointments', value: aptHistory.length, icon: 'calendar_month' },
+              { label: 'Prescriptions Issued', value: recentRx.length, icon: 'medication' },
+            ].map(s => (
+              <div key={s.label} className="rounded-2xl p-6 flex items-center gap-4" style={{ background: '#0c1422', border: '1px solid rgba(98,208,255,0.08)' }}>
+                <span className="material-symbols-outlined text-3xl text-[#62d0ff]">{s.icon}</span>
+                <div>
+                  <p className="text-3xl font-bold text-white">{s.value}</p>
+                  <p className="text-xs text-[#a0aace] uppercase tracking-widest mt-0.5">{s.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl p-6 text-center" style={{ background: '#0c1422', border: '1px solid rgba(98,208,255,0.08)' }}>
+            <span className="material-symbols-outlined text-4xl text-[#62d0ff]/30 block mb-2">monitoring</span>
+            <p className="text-[#a0aace] text-sm">Detailed charts coming soon</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Billing ── */}
+      {sideActive === 'Billing' && (
+        <div className="flex-1 flex items-center justify-center" style={{ background: '#090e1c' }}>
+          <div className="text-center">
+            <span className="material-symbols-outlined text-6xl text-[#62d0ff]/20 block mb-4">payments</span>
+            <h3 className="text-white font-bold text-xl mb-2">Billing Module</h3>
+            <p className="text-[#a0aace] text-sm">Coming soon</p>
+          </div>
+        </div>
+      )}
 
       {/* Floating + button */}
       <button

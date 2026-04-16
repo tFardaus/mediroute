@@ -86,6 +86,50 @@ const getAppointmentNotes = async (req, res) => {
   }
 };
 
+// DOCTOR: List of unique patients they have seen
+const getDoctorPatients = async (req, res) => {
+  const doctorId = req.user.id;
+  try {
+    const result = await pool.query(
+      `SELECT p.patient_id, p.name, p.email, p.phone,
+              EXTRACT(YEAR FROM AGE(p.date_of_birth))::int AS age,
+              MAX(a.scheduled_date) AS last_visit,
+              COUNT(a.appointment_id)::int AS visit_count
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.patient_id
+       WHERE a.doctor_id = $1
+       GROUP BY p.patient_id, p.name, p.email, p.phone, p.date_of_birth
+       ORDER BY last_visit DESC NULLS LAST`,
+      [doctorId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+// PATIENT: Get all consultation notes from their appointments
+const getMyConsultationNotes = async (req, res) => {
+  const patientId = req.user.id;
+  try {
+    const result = await pool.query(
+      `SELECT dn.note_id, dn.content, dn.created_at,
+              d.name AS doctor_name,
+              a.scheduled_date
+       FROM doctor_notes dn
+       JOIN appointments a ON dn.appointment_id = a.appointment_id
+       JOIN doctors d ON dn.doctor_id = d.doctor_id
+       WHERE a.patient_id = $1
+       ORDER BY dn.created_at DESC`,
+      [patientId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
 // DOCTOR: Get their own recent prescriptions with patient names
 const getDoctorPrescriptions = async (req, res) => {
   const doctorId = req.user.id;
@@ -109,4 +153,4 @@ const getDoctorPrescriptions = async (req, res) => {
   }
 };
 
-module.exports = { addNote, issuePrescription, getPatientPrescriptions, getAppointmentNotes, getDoctorPrescriptions };
+module.exports = { addNote, issuePrescription, getPatientPrescriptions, getAppointmentNotes, getDoctorPrescriptions, getDoctorPatients, getMyConsultationNotes };

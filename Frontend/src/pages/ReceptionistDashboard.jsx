@@ -6,18 +6,27 @@ export default function ReceptionistDashboard() {
   const [active, setActive] = useState('Dashboard')
   const [pending, setPending] = useState([])
   const [toast, setToast] = useState('')
-  const [approving, setApproving] = useState(null)   // apt being approved
+  const [approving, setApproving] = useState(null)
   const [schedDate, setSchedDate] = useState('')
   const [schedTime, setSchedTime] = useState('')
+  const [approvedApts, setApprovedApts] = useState([])
+  const [allPatients, setAllPatients] = useState([])
   const user = JSON.parse(localStorage.getItem('user') || '{}')
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  useEffect(() => { loadPending() }, [])
+  useEffect(() => { loadPending(); loadApproved(); loadPatients() }, [])
 
   async function loadPending() {
-    try { const { data } = await api.get('/appointments/pending'); setPending(data?.appointments || data || []) }
-    catch {}
+    try { const { data } = await api.get('/appointments/pending'); setPending(data?.appointments || data || []) } catch {}
+  }
+
+  async function loadApproved() {
+    try { const { data } = await api.get('/appointments/approved'); setApprovedApts(Array.isArray(data) ? data : []) } catch {}
+  }
+
+  async function loadPatients() {
+    try { const { data } = await api.get('/admin/patients'); setAllPatients(Array.isArray(data) ? data : []) } catch {}
   }
 
   function openApprove(apt) {
@@ -37,6 +46,7 @@ export default function ReceptionistDashboard() {
       showToast('Appointment approved!')
       setApproving(null)
       loadPending()
+      loadApproved()
     } catch (err) { showToast(err.response?.data?.error || 'Failed') }
   }
 
@@ -75,6 +85,109 @@ export default function ReceptionistDashboard() {
         </header>
 
         <main className="flex-1 p-8 overflow-y-auto space-y-6">
+          {/* ── Sidebar nav sections ── */}
+          {active === 'Pending' && (
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="font-headline font-bold text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-xl">pending_actions</span> Pending Appointments
+                </h3>
+                <button onClick={loadPending} className="btn-secondary text-xs px-4 py-2">
+                  <span className="material-symbols-outlined text-sm mr-1">refresh</span>Refresh
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-outline-variant/20 text-on-surface-variant text-xs uppercase tracking-wider">
+                    <th className="text-left pb-3 px-3">Patient</th><th className="text-left pb-3 px-3">Doctor</th>
+                    <th className="text-left pb-3 px-3">Date</th><th className="text-center pb-3 px-3">Actions</th>
+                  </tr></thead>
+                  <tbody>
+                    {pending.filter(a => a.status === 'pending').length === 0 ? (
+                      <tr><td colSpan={4} className="text-center py-8 text-on-surface-variant">No pending appointments</td></tr>
+                    ) : pending.filter(a => a.status === 'pending').map(apt => (
+                      <tr key={apt.appointment_id} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/20">
+                        <td className="py-3 px-3 font-medium text-on-surface">{apt.patient_name}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{apt.doctor_name}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{apt.scheduled_date ? new Date(apt.scheduled_date).toLocaleDateString() : '—'}</td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => openApprove(apt)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-tertiary/10 text-tertiary hover:bg-tertiary hover:text-surface transition-all">
+                              <span className="material-symbols-outlined text-sm">check</span>Approve
+                            </button>
+                            <button onClick={() => rejectAppointment(apt.appointment_id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-error/10 text-error hover:bg-error hover:text-on-error transition-all">
+                              <span className="material-symbols-outlined text-sm">close</span>Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {active === 'Approved' && (
+            <div className="glass-card p-6">
+              <h3 className="font-headline font-bold text-on-surface flex items-center gap-2 mb-5">
+                <span className="material-symbols-outlined text-tertiary text-xl">check_circle</span>Approved Appointments
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-outline-variant/20 text-on-surface-variant text-xs uppercase tracking-wider">
+                    <th className="text-left pb-3 px-3">Patient</th><th className="text-left pb-3 px-3">Doctor</th>
+                    <th className="text-left pb-3 px-3">Specialization</th><th className="text-left pb-3 px-3">Date</th><th className="text-left pb-3 px-3">Time</th>
+                  </tr></thead>
+                  <tbody>
+                    {approvedApts.length === 0 ? (
+                      <tr><td colSpan={5} className="text-center py-8 text-on-surface-variant">No approved appointments</td></tr>
+                    ) : approvedApts.map(apt => (
+                      <tr key={apt.appointment_id} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/20">
+                        <td className="py-3 px-3 font-medium text-on-surface">{apt.patient_name}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{apt.doctor_name}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{apt.specialization || '—'}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{apt.scheduled_date ? new Date(apt.scheduled_date).toLocaleDateString() : '—'}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{apt.scheduled_time || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {active === 'Patients' && (
+            <div className="glass-card p-6">
+              <h3 className="font-headline font-bold text-on-surface flex items-center gap-2 mb-5">
+                <span className="material-symbols-outlined text-primary text-xl">group</span>All Patients
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-outline-variant/20 text-on-surface-variant text-xs uppercase tracking-wider">
+                    <th className="text-left pb-3 px-3">Name</th><th className="text-left pb-3 px-3">Age</th>
+                    <th className="text-left pb-3 px-3">Email</th><th className="text-left pb-3 px-3">Phone</th><th className="text-left pb-3 px-3">Registered</th>
+                  </tr></thead>
+                  <tbody>
+                    {allPatients.length === 0 ? (
+                      <tr><td colSpan={5} className="text-center py-8 text-on-surface-variant">No patients found</td></tr>
+                    ) : allPatients.map(p => (
+                      <tr key={p.patient_id} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/20">
+                        <td className="py-3 px-3 font-medium text-on-surface">{p.name}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{p.age ? `${p.age} yrs` : '—'}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{p.email}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{p.phone || '—'}</td>
+                        <td className="py-3 px-3 text-on-surface-variant">{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── Dashboard (default) ── */}
+          {active === 'Dashboard' && <>
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-5">
             {[
@@ -197,6 +310,7 @@ export default function ReceptionistDashboard() {
               </div>
             </div>
           )}
+          </>}
         </main>
       </div>
 

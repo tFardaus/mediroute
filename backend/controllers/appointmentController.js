@@ -156,6 +156,50 @@ const getPatientAppointments = async (req, res) => {
   }
 };
 
+// DOCTOR: Full appointment history (all dates, all statuses)
+const getDoctorAppointmentHistory = async (req, res) => {
+  const doctorId = req.user.id;
+  try {
+    const result = await pool.query(
+      `SELECT a.appointment_id, a.status, a.scheduled_date, a.scheduled_time, a.requested_at,
+              p.name AS patient_name,
+              EXTRACT(YEAR FROM AGE(p.date_of_birth))::int AS age,
+              ss.symptoms_text,
+              ar.suggested_specialization
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.patient_id
+       LEFT JOIN symptom_submissions ss ON a.submission_id = ss.submission_id
+       LEFT JOIN ai_recommendations ar ON ss.submission_id = ar.submission_id
+       WHERE a.doctor_id = $1
+       ORDER BY a.scheduled_date DESC NULLS LAST, a.requested_at DESC`,
+      [doctorId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+// RECEPTIONIST: Get all approved appointments
+const getApprovedAppointments = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.appointment_id, a.status, a.scheduled_date, a.scheduled_time, a.requested_at,
+              p.name AS patient_name,
+              d.name AS doctor_name, d.specialization
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.patient_id
+       JOIN doctors d ON a.doctor_id = d.doctor_id
+       WHERE a.status = 'approved'
+       ORDER BY a.scheduled_date DESC NULLS LAST`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
 // PATIENT: Get list of all doctors for booking
 const getDoctorsList = async (req, res) => {
   try {
@@ -172,5 +216,5 @@ module.exports = {
   createAppointment, cancelAppointment,
   getPendingAppointments, updateAppointmentStatus,
   getDoctorAppointments, getPatientAppointments,
-  getDoctorsList
+  getDoctorsList, getDoctorAppointmentHistory, getApprovedAppointments
 };
