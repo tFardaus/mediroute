@@ -6,17 +6,16 @@ const {
   getDoctorAppointments, getPatientAppointments
 } = require('../controllers/appointmentController');
 const { protect, roleGuard } = require('../middleware/auth');
+const { validateAppointment, validateAppointmentStatus, validateId } = require('../middleware/validation');
+const { auditMiddleware } = require('../middleware/auditLogger');
 
-// Patient routes
-router.post('/', protect, roleGuard('patient'), createAppointment);
-router.delete('/:id', protect, roleGuard('patient'), cancelAppointment);
+router.post('/', protect, roleGuard('patient'), validateAppointment, auditMiddleware('CREATE_APPOINTMENT', 'appointment'), createAppointment);
+router.delete('/:id', protect, roleGuard('patient'), validateId, auditMiddleware('CANCEL_APPOINTMENT', 'appointment'), cancelAppointment);
 router.get('/my', protect, roleGuard('patient'), getPatientAppointments);
 
-// Receptionist routes
 router.get('/pending', protect, roleGuard('receptionist'), getPendingAppointments);
-router.patch('/:id', protect, roleGuard('receptionist'), updateAppointmentStatus);
+router.patch('/:id', protect, roleGuard('receptionist'), validateId, validateAppointmentStatus, auditMiddleware('UPDATE_APPOINTMENT_STATUS', 'appointment'), updateAppointmentStatus);
 
-// Doctor routes
 router.get('/doctor', protect, roleGuard('doctor'), getDoctorAppointments);
 
 module.exports = router;

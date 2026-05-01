@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { register, login } = require('../controllers/authController');
+const { register, login, requestPasswordReset, resetPassword } = require('../controllers/authController');
+const { validateRegistration, validateLogin, validatePasswordReset, validateNewPassword } = require('../middleware/validation');
+const { authLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
 
-// Quick safety check - remove after confirming it works
-console.log('register type:', typeof register);
-console.log('login type:', typeof login);
-
-router.post('/register', register);
-router.post('/login', login);
+router.post('/register', authLimiter, validateRegistration, register);
+router.post('/login', authLimiter, validateLogin, login);
+router.post('/request-password-reset', passwordResetLimiter, validatePasswordReset, requestPasswordReset);
+router.post('/reset-password', validateNewPassword, resetPassword);
 
 module.exports = router;

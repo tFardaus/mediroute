@@ -1,4 +1,6 @@
 const pool = require('../config/db');
+const { sendAppointmentConfirmation, sendAppointmentRejection } = require('../services/emailService');
+const { createNotification } = require('../controllers/notificationsController');
 
 // PATIENT: Request a new appointment
 const createAppointment = async (req, res) => {
@@ -15,6 +17,16 @@ const createAppointment = async (req, res) => {
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [patientId, doctorId, submissionId, scheduledDate || null, scheduledTime || null]
     );
+
+    await createNotification(
+      doctorId,
+      'doctor',
+      'new_appointment',
+      'New Appointment Request',
+      'You have a new appointment request',
+      `/appointments/${result.rows[0].appointment_id}`
+    );
+
     res.status(201).json({ message: 'Appointment requested.', appointment: result.rows[0] });
   } catch (err) {
     console.error(err);
@@ -85,6 +97,19 @@ const updateAppointmentStatus = async (req, res) => {
   }
 
   try {
+    const appointmentData = await pool.query(
+      `SELECT a.*, p.name as patient_name, p.email as patient_email, d.name as doctor_name
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.patient_id
+       JOIN doctors d ON a.doctor_id = d.doctor_id
+       WHERE a.appointment_id = $1`,
+      [id]
+    );
+
+    if (appointmentData.rows.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found.' });
+    }
+
     const result = await pool.query(
       `UPDATE appointments 
        SET status = $1, scheduled_date = $2, scheduled_time = $3
@@ -92,12 +117,42 @@ const updateAppointmentStatus = async (req, res) => {
       [status, scheduledDate || null, scheduledTime || null, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Appointment not found.' });
+    const appointment = appointmentData.rows[0];
+    
+    if (status === 'approved' && scheduledDate && scheduledTime) {
+      await sendAppointmentConfirmation(
+        appointment.patient_email,
+        appointment.patient_name,
+        appointment.doctor_name,
+        scheduledDate,
+        scheduledTime
+      );
+      await createNotification(
+        appointment.patient_id,
+        'patient',
+        'appointment_approved',
+        'Appointment Approved',
+        `Your appointment with Dr. ${appointment.doctor_name} has been approved`,
+        `/appointments/${id}`
+      );
+    } else if (status === 'rejected') {
+      await sendAppointmentRejection(
+        appointment.patient_email,
+        appointment.patient_name
+      );
+      await createNotification(
+        appointment.patient_id,
+        'patient',
+        'appointment_rejected',
+        'Appointment Update',
+        'Your appointment request was not approved',
+        `/appointments/${id}`
+      );
     }
 
     res.json({ message: `Appointment ${status}.`, appointment: result.rows[0] });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error.' });
   }
 };
